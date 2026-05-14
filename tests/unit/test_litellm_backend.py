@@ -88,6 +88,47 @@ class TestComplete:
             backend.complete([{"role": "user", "content": "Hi"}], cfg)
         assert isinstance(exc_info.value.__cause__, litellm.exceptions.APIError)
 
+    def test_raises_backend_error_when_no_model(self, mock_litellm: MagicMock) -> None:
+        # Config sans model + pas de model= dans kwargs -> BackendError
+        cfg = Config(backend="litellm", api_key="x", model=None, base_url="http://x")
+        with pytest.raises(BackendError, match="model requis"):
+            backend.complete([{"role": "user", "content": "Hi"}], cfg)
+
+    def test_no_api_key_skips_env_injection(
+        self, mock_litellm: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
+        cfg = Config(
+            backend="litellm",
+            api_key=None,
+            model="ollama/qwen3:32b",
+            base_url="http://localhost:11434",
+        )
+        backend.complete([{"role": "user", "content": "Hi"}], cfg)
+        assert os.environ.get("OLLAMA_API_KEY") is None
+
+    def test_extra_body_merged_into_call_kwargs(self, mock_litellm: MagicMock) -> None:
+        cfg = Config(backend="litellm", api_key="x", model="openai/gpt-5")
+        backend.complete(
+            [{"role": "user", "content": "Hi"}],
+            cfg,
+            extra_body={"safety_settings": "off"},
+        )
+        call = mock_litellm.sync_call.call_args
+        assert call.kwargs.get("safety_settings") == "off"
+
+    def test_wraps_bad_request_error(self, mocker: pytest_mock.MockerFixture) -> None:
+        mocker.patch(
+            "litellm.completion",
+            side_effect=litellm.exceptions.BadRequestError(
+                message="bad", model="gpt-5", llm_provider="openai"
+            ),
+        )
+        cfg = Config(backend="litellm", api_key="x", model="openai/gpt-5")
+        with pytest.raises(BackendError) as exc_info:
+            backend.complete([{"role": "user", "content": "Hi"}], cfg)
+        assert isinstance(exc_info.value.__cause__, litellm.exceptions.BadRequestError)
+
 
 class TestAcomplete:
     @pytest.mark.asyncio
@@ -95,3 +136,31 @@ class TestAcomplete:
         cfg = Config(backend="litellm", api_key="x", model="openai/gpt-5")
         result = await backend.acomplete([{"role": "user", "content": "Hi"}], cfg)
         assert result["choices"][0]["message"]["content"] == "hello"
+
+    @pytest.mark.asyncio
+    async def test_acomplete_wraps_api_error(self, mocker: pytest_mock.MockerFixture) -> None:
+        async def _raise(**_kwargs: object) -> dict[str, object]:
+            raise litellm.exceptions.APIError(
+                status_code=500, message="boom", llm_provider="openai", model="gpt-5"
+            )
+
+        mocker.patch("litellm.acompletion", side_effect=_raise)
+        cfg = Config(backend="litellm", api_key="x", model="openai/gpt-5")
+        with pytest.raises(BackendError) as exc_info:
+            await backend.acomplete([{"role": "user", "content": "Hi"}], cfg)
+        assert isinstance(exc_info.value.__cause__, litellm.exceptions.APIError)
+
+    @pytest.mark.asyncio
+    async def test_acomplete_wraps_bad_request_error(
+        self, mocker: pytest_mock.MockerFixture
+    ) -> None:
+        async def _raise(**_kwargs: object) -> dict[str, object]:
+            raise litellm.exceptions.BadRequestError(
+                message="bad", model="gpt-5", llm_provider="openai"
+            )
+
+        mocker.patch("litellm.acompletion", side_effect=_raise)
+        cfg = Config(backend="litellm", api_key="x", model="openai/gpt-5")
+        with pytest.raises(BackendError) as exc_info:
+            await backend.acomplete([{"role": "user", "content": "Hi"}], cfg)
+        assert isinstance(exc_info.value.__cause__, litellm.exceptions.BadRequestError)
