@@ -2,7 +2,7 @@
 
 **Statut** : Implémenté (v0.1.0)
 **Date** : 2026-05-14
-**Auteur** : JP
+**Auteur** : Sandjab
 **Source** : conversation initiale de design
 
 ---
@@ -172,4 +172,4 @@ Raisons clés :
 
 | Date | Auteur | Changement |
 |------|--------|------------|
-| 2026-05-14 | JP + Claude | Création du PRD |
+| 2026-05-14 | Sandjab + Claude | Création du PRD |
