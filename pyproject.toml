@@ -71,7 +71,9 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "integration: tests that hit real LLM APIs (require API keys)",
-    "requires_claude_cli: tests that require the `claude` CLI in PATH",
+    "anthropic_live: requires ANTHROPIC_API_KEY",
+    "openai_live: requires OPENAI_API_KEY",
+    "requires_claude_cli: requires `claude` CLI in PATH",
 ]
 
 [tool.coverage.run]

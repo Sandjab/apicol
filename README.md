@@ -6,12 +6,13 @@ Sélection du backend par variables d'environnement *ou* par objet `Client` conf
 
 ## Statut
 
-**Phase de design.** Aucun code écrit. Ce repo contient pour l'instant le squelette documentaire :
+**v0.1.0 — alpha.** Implémentation complète des trois backends (Anthropic natif, LiteLLM, `claude -p` dev-only), surface publique stable, ≥95 % de couverture. Streaming et tool calls reportés à v0.2/v0.3. Documentation associée :
 
 - `README.md` — ce fichier
 - `CLAUDE.md` — instructions pour Claude Code travaillant sur ce repo
 - `ARCHITECTURE.md` — décisions techniques structurantes
 - `SPEC.md` — contrat d'API publique
+- `CHANGELOG.md` — historique des versions
 - `pyproject.toml` — métadonnées du package
 - `docs/prd/` — PRD-001 (architecture deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend simultané)
 
