@@ -1,5 +1,12 @@
 # apicol
 
+[![CI](https://github.com/Sandjab/apicol/actions/workflows/ci.yml/badge.svg)](https://github.com/Sandjab/apicol/actions/workflows/ci.yml)
+[![Last commit](https://img.shields.io/github/last-commit/Sandjab/apicol)](https://github.com/Sandjab/apicol/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-blue.svg)](https://www.python.org)
+[![Version](https://img.shields.io/badge/Version-v0.1.0-green.svg)](https://github.com/Sandjab/apicol/releases/tag/v0.1.0)
+[![Visitors](https://komarev.com/ghpvc/?username=sandjab-apicol&label=Visitors&color=0e75b6&style=flat)](https://github.com/Sandjab/apicol)
+
 Couche d'abstraction Python pour appeler un LLM via plusieurs backends interchangeables. Une interface unifiée au format OpenAI pour parler à : **API Anthropic native** (avec caching, thinking, citations), **LiteLLM** (qui route vers OpenAI, Gemini, Mistral, Ollama, vLLM, LM Studio, OpenRouter et 100+ providers), et **Claude Code CLI** (`claude -p`, usage dev local uniquement).
 
 Sélection du backend par variables d'environnement *ou* par objet `Client` configurable. Plusieurs backends peuvent cohabiter dans le même process (bench, fallback applicatif, comparaison).
@@ -37,19 +44,19 @@ pip install apicol
 
 ```bash
 # Dernière version de main
-pip install git+https://github.com/JP/apicol.git
+pip install git+https://github.com/Sandjab/apicol.git
 
 # Tag spécifique
-pip install git+https://github.com/JP/apicol.git@v0.1.0
+pip install git+https://github.com/Sandjab/apicol.git@v0.1.0
 
 # Branche dev
-pip install git+https://github.com/JP/apicol.git@dev
+pip install git+https://github.com/Sandjab/apicol.git@dev
 ```
 
 ### Installation editable (dev local)
 
 ```bash
-git clone https://github.com/JP/apicol.git
+git clone https://github.com/Sandjab/apicol.git
 cd apicol
 pip install -e ".[dev]"  # base + outils dev (pytest, ruff, mypy)
 ```
@@ -63,7 +70,7 @@ pip install -e ".[dev]"  # base + outils dev (pytest, ruff, mypy)
 dependencies = [
     "apicol>=0.1.0",
     # OU depuis git en phase alpha
-    "apicol @ git+https://github.com/JP/apicol.git@main",
+    "apicol @ git+https://github.com/Sandjab/apicol.git@main",
 ]
 ```
 
@@ -78,7 +85,7 @@ apicol>=0.1.0
 ```bash
 uv add apicol
 # ou depuis git
-uv add "apicol @ git+https://github.com/JP/apicol.git"
+uv add "apicol @ git+https://github.com/Sandjab/apicol.git"
 ```
 
 ### Dépendances installées
