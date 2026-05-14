@@ -98,6 +98,7 @@ apicol/
 - **Noms publics : sans underscore.** `chat`, `achat`, `anthropic_client`. Pas de `Chat()` ni de classes inutiles — fonctions tant que possible.
 - **Noms internes : avec underscore en préfixe.** `_config.py`, `_route.py`. L'utilisateur ne doit jamais importer depuis ces modules.
 - **Pas de `from X import *`.** Imports explicites partout.
+- **Imports SDK : utiliser le module, pas le symbole nu.** Dans les backends, écrire `import anthropic` puis `anthropic.Anthropic(...)` ; **jamais** `from anthropic import Anthropic` puis `Anthropic(...)`. Idem pour `litellm`. Raison : les fixtures de test patchent `anthropic.Anthropic` / `litellm.completion` sur le module ; un import du symbole nu lie un alias local que `mocker.patch` ne peut pas intercepter — le test appellerait silencieusement le vrai SDK.
 - **Type hints obligatoires** sur les signatures publiques, fortement encouragés ailleurs.
 - **Docstrings** sur toute fonction publique, format Google (compatible Sphinx/MkDocs si on documente un jour).
 - **Erreurs custom** dans `_errors.py`, jamais de `raise Exception(...)` brut.

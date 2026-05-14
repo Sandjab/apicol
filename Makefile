@@ -1,8 +1,7 @@
 .PHONY: install check format lint typecheck test test-integration clean
 
 install:
-	uv venv
-	uv pip install -e ".[dev]"
+	uv sync --all-extras
 
 format:
 	uv run ruff format src tests

@@ -31,7 +31,7 @@ jobs:
       - name: Pytest with coverage
         run: uv run pytest -xvs --cov=src/apicol --cov-report=xml --cov-fail-under=95
       - name: Upload coverage to Codecov
-        if: matrix.python == '3.12'
+        if: matrix.python == '3.13'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml

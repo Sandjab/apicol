@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from unittest.mock import MagicMock
 
 import pytest
+import pytest_mock
 
 APICOL_ENV_VARS = ("APICOL_TYPE", "APICOL_KEY", "APICOL_MODEL", "APICOL_URL")
 
@@ -18,7 +19,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def mock_anthropic_sdk(mocker):  # type: ignore[no-untyped-def]
+def mock_anthropic_sdk(mocker: pytest_mock.MockerFixture) -> MagicMock:
     """Patch anthropic.Anthropic et anthropic.AsyncAnthropic.
 
     Retourne un namespace avec .sync, .async_ (les instances mockées du SDK)
@@ -36,7 +37,7 @@ def mock_anthropic_sdk(mocker):  # type: ignore[no-untyped-def]
 
     async_client = MagicMock()
 
-    async def _async_create(**kwargs):  # type: ignore[no-untyped-def]
+    async def _async_create(**kwargs: object) -> MagicMock:
         return fake_response
 
     async_client.messages.create.side_effect = _async_create
@@ -52,13 +53,13 @@ def mock_anthropic_sdk(mocker):  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture
-def mock_litellm(mocker):  # type: ignore[no-untyped-def]
+def mock_litellm(mocker: pytest_mock.MockerFixture) -> MagicMock:
     """Patch litellm.completion et litellm.acompletion.
 
     Retourne un namespace avec .sync_call, .async_call (les MagicMock)
     et .response (le dict OpenAI renvoyé par défaut).
     """
-    response_dict = {
+    response_dict: dict[str, object] = {
         "id": "chatcmpl-test",
         "model": "gpt-test",
         "choices": [
@@ -73,7 +74,7 @@ def mock_litellm(mocker):  # type: ignore[no-untyped-def]
 
     sync_call = mocker.patch("litellm.completion", return_value=response_dict)
 
-    async def _async_call(**kwargs):  # type: ignore[no-untyped-def]
+    async def _async_call(**kwargs: object) -> dict[str, object]:
         return response_dict
 
     async_call = mocker.patch("litellm.acompletion", side_effect=_async_call)
@@ -86,7 +87,7 @@ def mock_litellm(mocker):  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture
-def mock_subprocess(mocker):  # type: ignore[no-untyped-def]
+def mock_subprocess(mocker: pytest_mock.MockerFixture) -> MagicMock:
     """Patch subprocess.run et asyncio.create_subprocess_exec pour claude_cli.
 
     Retourne un namespace .sync_call, .async_call, .stdout (par défaut).
@@ -105,12 +106,12 @@ def mock_subprocess(mocker):  # type: ignore[no-untyped-def]
     async_proc = MagicMock()
     async_proc.returncode = 0
 
-    async def _communicate():  # type: ignore[no-untyped-def]
+    async def _communicate() -> tuple[bytes, bytes]:
         return (default_stdout.encode(), b"")
 
     async_proc.communicate.side_effect = _communicate
 
-    async def _create_subprocess(*args, **kwargs):  # type: ignore[no-untyped-def]
+    async def _create_subprocess(*args: object, **kwargs: object) -> MagicMock:
         return async_proc
 
     async_call = mocker.patch("asyncio.create_subprocess_exec", side_effect=_create_subprocess)
@@ -130,7 +131,7 @@ def reset_implicit_client_cache() -> Iterator[None]:
     """
     yield
     try:
-        from apicol import _client  # type: ignore[import-not-found]
+        from apicol import _client  # type: ignore[import-untyped]
     except ImportError:
         return
     if hasattr(_client, "_IMPLICIT_SYNC_CACHE"):

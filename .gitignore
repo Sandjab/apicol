@@ -1,1 +1,25 @@
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Virtualenv
+.venv/
+
+# Build artifacts
+dist/
+build/
+
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
