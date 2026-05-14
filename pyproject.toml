@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "apicol"  # à remplacer par le nom définitif
+name = "apicol"
 version = "0.1.0"
 description = "Couche d'abstraction multi-backend pour appels LLM : Anthropic natif, LiteLLM (OpenAI/Gemini/Ollama/vLLM/OpenRouter), claude -p dev-only."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }  # à confirmer
+license = { text = "MIT" }
 authors = [
     { name = "JP" },
 ]
@@ -41,10 +41,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jp/apicol"          # à remplacer
-Repository = "https://github.com/jp/apicol"         # à remplacer
-Issues = "https://github.com/jp/apicol/issues"      # à remplacer
-Changelog = "https://github.com/jp/apicol/blob/main/CHANGELOG.md"  # à remplacer
+Homepage = "https://github.com/Sandjab/apicol"
+Repository = "https://github.com/Sandjab/apicol"
+Issues = "https://github.com/Sandjab/apicol/issues"
+Changelog = "https://github.com/Sandjab/apicol/blob/main/CHANGELOG.md"
 
 # ─── Hatch ────────────────────────────────────────────────────────────
 [tool.hatch.build.targets.wheel]
