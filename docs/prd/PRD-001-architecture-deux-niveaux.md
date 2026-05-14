@@ -1,6 +1,6 @@
 # PRD-001 : Architecture à deux niveaux pour la couche d'abstraction multi-backend
 
-**Statut** : Brouillon
+**Statut** : Implémenté (v0.1.0)
 **Date** : 2026-05-14
 **Auteur** : JP
 **Source** : conversation initiale de design

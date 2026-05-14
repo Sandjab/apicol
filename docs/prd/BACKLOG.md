@@ -4,15 +4,15 @@ Index des PRD du workspace `apicol`.
 
 ## En cours
 
-| PRD | Titre | Statut | Date |
-|-----|-------|--------|------|
-| [PRD-001](PRD-001-architecture-deux-niveaux.md) | Architecture à deux niveaux pour la couche d'abstraction multi-backend | Brouillon | 2026-05-14 |
-| [PRD-002](PRD-002-separation-claude-cli.md) | Séparation lexicale du backend `claude -p` | Brouillon | 2026-05-14 |
-| [PRD-003](PRD-003-multi-backend-simultane.md) | Multi-backend simultané via objet `Client` | Brouillon | 2026-05-14 |
+_Aucun pour le moment._
 
 ## Validés (implémentés)
 
-_Aucun pour le moment._
+| PRD | Titre | Version | Date |
+|-----|-------|---------|------|
+| [PRD-001](PRD-001-architecture-deux-niveaux.md) | Architecture à deux niveaux pour la couche d'abstraction multi-backend | v0.1.0 | 2026-05-14 |
+| [PRD-002](PRD-002-separation-claude-cli.md) | Séparation lexicale du backend `claude -p` | v0.1.0 | 2026-05-14 |
+| [PRD-003](PRD-003-multi-backend-simultane.md) | Multi-backend simultané via objet `Client` | v0.1.0 | 2026-05-14 |
 
 ## Abandonnés
 

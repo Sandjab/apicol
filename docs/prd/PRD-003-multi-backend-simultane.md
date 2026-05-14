@@ -1,6 +1,6 @@
 # PRD-003 : Multi-backend simultané via objet `Client`
 
-**Statut** : Brouillon
+**Statut** : Implémenté (v0.1.0)
 **Date** : 2026-05-14
 **Auteur** : JP
 **Source** : conversation de design — besoin exprimé d'avoir plusieurs backends actifs dans le même process (bench, fallback applicatif, comparaison)
