@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import subprocess
 
 import pytest
@@ -162,9 +163,12 @@ class TestAcomplete:
 
         mocker.patch("asyncio.create_subprocess_exec", side_effect=_create_subprocess)
 
-        # Force asyncio.wait_for to raise TimeoutError without actually blocking
+        # Force asyncio.wait_for to raise asyncio.TimeoutError without actually blocking.
+        # Note : sur Python 3.10, asyncio.TimeoutError est une classe distincte de
+        # TimeoutError built-in. Sur 3.11+ c'est un alias. Notre code source attrape
+        # asyncio.TimeoutError ; il faut donc lever exactement cette exception ici.
         async def _raise_timeout(*_args: object, **_kwargs: object) -> None:
-            raise TimeoutError
+            raise asyncio.TimeoutError
 
         mocker.patch("asyncio.wait_for", side_effect=_raise_timeout)
 
