@@ -11,6 +11,7 @@ from typing import Any
 
 from apicol._backends import anthropic as anthropic_backend
 from apicol._backends import litellm as litellm_backend
+from apicol._backends import openai_compatible as openai_compatible_backend
 from apicol._config import Config
 from apicol._errors import ConfigError
 
@@ -23,6 +24,8 @@ def pick_backend(config: Config) -> tuple[SyncCallable, AsyncCallable]:
     match config.backend:
         case "anthropic":
             return anthropic_backend.complete, anthropic_backend.acomplete
+        case "openai-compatible":
+            return openai_compatible_backend.complete, openai_compatible_backend.acomplete
         case "litellm":
             return litellm_backend.complete, litellm_backend.acomplete
         case _:  # pragma: no cover

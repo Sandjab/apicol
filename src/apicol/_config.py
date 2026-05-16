@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from apicol._errors import ConfigError
 
-Backend = Literal["anthropic", "litellm"]
-_VALID_BACKENDS: tuple[str, ...] = ("anthropic", "litellm")
+Backend = Literal["anthropic", "openai-compatible", "litellm"]
+_VALID_BACKENDS: tuple[str, ...] = ("anthropic", "openai-compatible", "litellm")
 
 _ENV_TYPE = "APICOL_TYPE"
 _ENV_KEY = "APICOL_KEY"
@@ -22,10 +22,15 @@ class Config:
     """Configuration immutable d'un backend apicol.
 
     Args:
-        backend: 'anthropic' ou 'litellm'. Toute autre valeur lève ConfigError.
-        api_key: Clé d'API. Requise sauf cas locaux (litellm avec base_url).
+        backend: 'anthropic', 'openai-compatible' ou 'litellm'. Toute autre
+            valeur lève ConfigError.
+        api_key: Clé d'API. Requise sauf cas locaux (openai-compatible ou
+            litellm avec base_url et endpoint qui n'exige pas de clé).
         model: Nom du modèle. Requis pour pouvoir appeler chat().
-        base_url: Endpoint custom optionnel (vLLM, Ollama, gateway).
+        base_url: Endpoint custom optionnel (vLLM, Ollama, OpenRouter, gateway).
+        extra_headers: Headers HTTP attachés à la connexion (ex. HTTP-Referer
+            et X-Title pour OpenRouter). Appliqué pour openai-compatible et
+            anthropic ; ignoré silencieusement pour litellm (cf. SPEC).
 
     Raises:
         ConfigError: Si backend invalide, si claude_cli passé, ou si la
@@ -36,6 +41,7 @@ class Config:
     api_key: str | None
     model: str | None
     base_url: str | None = None
+    extra_headers: dict[str, str] | None = field(default=None)
 
     def __post_init__(self) -> None:
         self._validate()
@@ -57,6 +63,11 @@ class Config:
             raise ConfigError(
                 "backend='litellm' requiert api_key sauf si base_url est défini "
                 "(ex. Ollama/LM Studio local)."
+            )
+        if self.backend == "openai-compatible" and not self.api_key and not self.base_url:
+            raise ConfigError(
+                "backend='openai-compatible' requiert api_key sauf si base_url est défini "
+                "(ex. Ollama/vLLM/LM Studio local)."
             )
 
 
@@ -81,4 +92,5 @@ def load_from_env() -> Config:
         api_key=api_key,
         model=model,
         base_url=base_url,
+        extra_headers=None,
     )

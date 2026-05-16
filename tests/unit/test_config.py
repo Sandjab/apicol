@@ -55,6 +55,34 @@ class TestConfigValidation:
         with pytest.raises(ConfigError, match="api_key"):
             Config(backend="litellm", api_key=None, model="openai/gpt-5")
 
+    def test_minimal_openai_compatible(self) -> None:
+        cfg = Config(backend="openai-compatible", api_key="sk-x", model="gpt-5")
+        assert cfg.backend == "openai-compatible"
+        assert cfg.extra_headers is None
+
+    def test_openai_compatible_local_no_key_required(self) -> None:
+        cfg = Config(
+            backend="openai-compatible",
+            api_key=None,
+            model="qwen3:32b",
+            base_url="http://localhost:11434/v1",
+        )
+        assert cfg.api_key is None
+
+    def test_openai_compatible_remote_requires_api_key_or_base_url(self) -> None:
+        with pytest.raises(ConfigError, match="api_key"):
+            Config(backend="openai-compatible", api_key=None, model="gpt-5")
+
+    def test_extra_headers_stored(self) -> None:
+        headers = {"X-Title": "apicol", "HTTP-Referer": "https://example.com"}
+        cfg = Config(
+            backend="openai-compatible",
+            api_key="sk-x",
+            model="gpt-5",
+            extra_headers=headers,
+        )
+        assert cfg.extra_headers == headers
+
 
 class TestLoadFromEnv:
     def test_loads_anthropic_config(self, monkeypatch: pytest.MonkeyPatch) -> None:

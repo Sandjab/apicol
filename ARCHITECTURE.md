@@ -28,22 +28,25 @@ Décisions techniques de `apicol`. Toute décision structurante référencée ic
        │                            ┌───────────────────────────┐         │
        │                            │   _route.pick_backend()   │         │
        │                            │   match config.backend    │         │
-       │                            └────┬──────────┬───────────┘         │
-       │                                 │          │                     │
-       │                                 ▼          ▼                     │
-       │                            ┌─────────┐ ┌──────────┐              │
-       │                            │anthropic│ │ litellm  │              │
-       │                            │backend  │ │ backend  │              │
-       │                            └────┬────┘ └────┬─────┘              │
-       │                                 │           │                     │
-       └─────────────────────────────────┼───────────┼─────────────────────┘
-                                         │           │
-                                         ▼           ▼
-                              ┌────────────┐ ┌─────────────────────────┐
-                              │  Anthropic │ │  LiteLLM                │
-                              │  SDK natif │ │  (OpenAI, Gemini,       │
-                              │            │ │   Ollama, vLLM, ...)    │
-                              └────────────┘ └─────────────────────────┘
+       │                            └──┬───────┬───────┬────────┘         │
+       │                               │       │       │                  │
+       │                               ▼       ▼       ▼                  │
+       │                          ┌────────┐┌──────────┐┌─────────┐       │
+       │                          │anthropic││ openai-  ││ litellm │       │
+       │                          │backend  ││compatible││ backend │       │
+       │                          │         ││ backend  ││         │       │
+       │                          └───┬────┘└────┬─────┘└────┬────┘       │
+       │                              │          │           │             │
+       └──────────────────────────────┼──────────┼───────────┼─────────────┘
+                                      │          │           │
+                                      ▼          ▼           ▼
+                           ┌──────────┐┌────────────────┐┌─────────────────┐
+                           │ Anthropic││ OpenAI SDK     ││ LiteLLM         │
+                           │ SDK natif││ (OpenAI,       ││ (Gemini natif,  │
+                           │          ││  Mistral,      ││  Bedrock, Vertex,│
+                           │          ││  Ollama, vLLM, ││  Azure, Cohere) │
+                           │          ││  OpenRouter…)  ││                 │
+                           └──────────┘└────────────────┘└─────────────────┘
 
        Échappatoire native (depuis Client ou fonction globale) :
        Client(backend="anthropic", ...).anthropic_native() → anthropic.Anthropic
@@ -158,6 +161,22 @@ Les erreurs SDK upstream (`anthropic.APIError`, `litellm.exceptions.*`) sont acc
 
 **Référence.** `docs/prd/PRD-003-multi-backend-simultane.md`
 
+### D11 — Backend `openai-compatible` distinct de LiteLLM
+
+**Décision.** Trois backends coexistent : `anthropic`, `openai-compatible`, `litellm`. Le backend `openai-compatible` utilise le SDK officiel `openai` pour parler à tout endpoint qui expose `/v1/chat/completions` au format OpenAI (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek, Together, Fireworks, Anyscale, et tout proxy compatible — y compris LiteLLM en mode proxy). LiteLLM reste pour les providers qui **ne parlent pas** OpenAI nativement : Gemini natif (Google AI Studio / Vertex AI), Bedrock, Azure OpenAI, Cohere, Replicate, HuggingFace Inference.
+
+**Pourquoi.** Pour 6/7 des providers ciblés à l'origine par le README (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter), LiteLLM est techniquement surdimensionné : ces endpoints sont déjà OpenAI-compatibles, et `openai.OpenAI(base_url=...)` suffit. Charger LiteLLM (~200 transitives, surface qui bouge) pour ces cas-là, c'est payer sans contrepartie. LiteLLM gagne sa place uniquement pour les providers exotiques où il fait du vrai travail de traduction de format et d'auth. Aligner la dépendance sur la valeur ajoutée réelle, c'est l'application à LiteLLM de la règle qu'on lui applique déjà (D2 — « ne pas réinventer ce qui existe »).
+
+**Conséquences** :
+
+- Une **règle de décision claire** dans SPEC.md et README.md : `openai-compatible` pour les endpoints OpenAI HTTP, `litellm` pour les providers natifs exotiques, `anthropic` pour le SDK natif Anthropic. L'utilisateur choisit explicitement.
+- **Asymétrie sur `APICOL_KEY`** : pour `litellm`, la clé est injectée dans l'env var attendue par le provider détecté à partir du nom de modèle (« seule magie acceptée » de D8). Pour `openai-compatible`, la clé est passée telle quelle au SDK OpenAI — pas de magie de détection. Documentée dans SPEC.
+- **Nouveau kwarg `extra_headers`** sur `Client` / `AsyncClient` : attaché à la connexion (`default_headers` du SDK OpenAI), utile pour OpenRouter (`HTTP-Referer`, `X-Title`) ou pour un gateway custom. Cohabite avec `extra_body` (qui reste par appel).
+- **Pas d'`openai_native()`** : contrairement au cas Anthropic, le SDK OpenAI est trivialement instanciable par l'utilisateur (`openai.OpenAI(api_key=..., base_url=...)`) et toutes ses features sont accessibles au niveau 1 d'apicol. Ajout reporté si demande émerge.
+- **LiteLLM reste dépendance directe en v0.2** ; le rendre optionnel via extras (`pip install apicol[litellm]`) est reporté à un éventuel PRD-005.
+
+**Référence.** `docs/prd/PRD-004-backend-openai-compatible.md`
+
 ## Flux de dispatch
 
 **Via `Client` explicite (chemin principal en multi-backend) :**
@@ -172,7 +191,7 @@ Client(backend, api_key, model, base_url)
   ├─→ stocke la config + résout le callable backend une fois
   │
   └─→ client.chat(messages, **kwargs)
-       └─→ _backends.{anthropic|litellm}.complete(messages, config, **kwargs)
+       └─→ _backends.{anthropic|openai_compatible|litellm}.complete(messages, config, **kwargs)
             └─→ retourne dict format OpenAI : {"choices": [...], "usage": {...}, "model": "..."}
 ```
 
@@ -207,6 +226,8 @@ chat(messages, **kwargs)
 
 **LiteLLM** : aucune traduction. LiteLLM accepte du format OpenAI et renvoie du format OpenAI. On passe les `messages` tels quels, on récupère la réponse telle quelle. Les seules manipulations sont : préfixer le model avec le provider si nécessaire, injecter `api_base` depuis `APICOL_URL`.
 
+**`openai-compatible`** : aucune traduction non plus. Le SDK OpenAI parle déjà OpenAI. La seule manipulation est l'appel à `.model_dump()` sur le `ChatCompletion` Pydantic retourné pour respecter le contrat `dict[str, Any]` partagé par tous les backends. `extra_headers` est appliqué une seule fois à la construction du client SDK (`default_headers`), pas par appel.
+
 ## Tests : stratégie
 
 | Niveau | Type | Cible |
@@ -215,6 +236,7 @@ chat(messages, **kwargs)
 | `tests/test_route.py` | unitaire | Dispatch correct selon api_type, rejet de `claude_cli` |
 | `tests/test_anthropic_backend.py` | unitaire (mock) | Traduction OpenAI↔Anthropic, mapping reasoning_effort |
 | `tests/test_litellm_backend.py` | unitaire (mock) | Pass-through correct, injection api_base |
+| `tests/test_openai_compatible_backend.py` | unitaire (mock) | Pass-through, propagation api_key/base_url/extra_headers au constructeur SDK |
 | `tests/test_claude_cli_backend.py` | unitaire (mock subprocess) | Format de l'invocation, parsing de la sortie |
 | `tests/integration/` | integration (réseau) | Smoke tests sur vraies APIs, marqués `@pytest.mark.integration` |
 

@@ -32,12 +32,14 @@ class Client:
         api_key: str | None = None,
         model: str | None = None,
         base_url: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         cfg = Config(
             backend=backend,  # type: ignore[arg-type]
             api_key=api_key,
             model=model,
             base_url=base_url,
+            extra_headers=extra_headers,
         )
         sync_cb, async_cb = pick_backend(cfg)
         object.__setattr__(self, "config", cfg)
@@ -77,12 +79,14 @@ class AsyncClient:
         api_key: str | None = None,
         model: str | None = None,
         base_url: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         cfg = Config(
             backend=backend,  # type: ignore[arg-type]
             api_key=api_key,
             model=model,
             base_url=base_url,
+            extra_headers=extra_headers,
         )
         sync_cb, async_cb = pick_backend(cfg)
         object.__setattr__(self, "config", cfg)
@@ -125,7 +129,11 @@ def _get_implicit_sync_client() -> Client:
         return cached
     _IMPLICIT_SYNC_CACHE.clear()
     client = Client(
-        backend=cfg.backend, api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url
+        backend=cfg.backend,
+        api_key=cfg.api_key,
+        model=cfg.model,
+        base_url=cfg.base_url,
+        extra_headers=cfg.extra_headers,
     )
     _IMPLICIT_SYNC_CACHE[key] = client
     return client
@@ -140,7 +148,11 @@ def _get_implicit_async_client() -> AsyncClient:
         return cached
     _IMPLICIT_ASYNC_CACHE.clear()
     client = AsyncClient(
-        backend=cfg.backend, api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url
+        backend=cfg.backend,
+        api_key=cfg.api_key,
+        model=cfg.model,
+        base_url=cfg.base_url,
+        extra_headers=cfg.extra_headers,
     )
     _IMPLICIT_ASYNC_CACHE[key] = client
     return client

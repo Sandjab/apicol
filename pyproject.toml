@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apicol"
-version = "0.1.0"
-description = "Couche d'abstraction multi-backend pour appels LLM : Anthropic natif, LiteLLM (OpenAI/Gemini/Ollama/vLLM/OpenRouter), claude -p dev-only."
+version = "0.2.0"
+description = "Couche d'abstraction multi-backend pour appels LLM : Anthropic natif, OpenAI-compatible (Ollama/vLLM/OpenRouter/...), LiteLLM (Gemini/Bedrock/Vertex/Azure), claude -p dev-only."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -26,7 +26,8 @@ classifiers = [
 ]
 dependencies = [
     "anthropic>=0.40.0",     # SDK natif pour le backend Anthropic et le niveau 2
-    "litellm>=1.50.0",       # délégation pour tous les autres backends
+    "openai>=1.50.0",        # SDK officiel pour le backend openai-compatible
+    "litellm>=1.50.0",       # délégation pour les providers natifs exotiques (Gemini, Bedrock, Vertex, Azure, Cohere)
 ]
 
 [project.optional-dependencies]

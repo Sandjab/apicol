@@ -146,3 +146,45 @@ class TestMultiInstanceSimultaneous:
         r2 = gpt.chat(prompt)
         assert r1["choices"][0]["message"]["content"] == "hello"
         assert r2["choices"][0]["message"]["content"] == "hello"
+
+    def test_three_backends_coexist(
+        self, mock_anthropic_sdk, mock_litellm, mock_openai_sdk
+    ) -> None:
+        claude = Client(backend="anthropic", api_key="x", model="claude-opus-4-7")
+        gpt = Client(
+            backend="openai-compatible",
+            api_key="sk-or-x",
+            model="anthropic/claude-haiku-4-5",
+            base_url="https://openrouter.ai/api/v1",
+        )
+        gemini = Client(backend="litellm", api_key="y", model="gemini/gemini-2.5-pro")
+        prompt = [{"role": "user", "content": "Hi"}]
+        assert claude.chat(prompt)["choices"][0]["message"]["content"] == "hello"
+        assert gpt.chat(prompt)["choices"][0]["message"]["content"] == "hello"
+        assert gemini.chat(prompt)["choices"][0]["message"]["content"] == "hello"
+
+
+class TestExtraHeaders:
+    def test_extra_headers_stored_in_config(self) -> None:
+        client = Client(
+            backend="openai-compatible",
+            api_key="sk-x",
+            model="gpt-5",
+            extra_headers={"X-Title": "apicol"},
+        )
+        assert client.config.extra_headers == {"X-Title": "apicol"}
+
+    def test_extra_headers_propagated_to_openai_constructor(self, mock_openai_sdk) -> None:
+        client = Client(
+            backend="openai-compatible",
+            api_key="sk-x",
+            model="gpt-5",
+            extra_headers={"X-Title": "apicol"},
+        )
+        client.chat([{"role": "user", "content": "Hi"}])
+        ctor_kwargs = mock_openai_sdk.sync_ctor.call_args.kwargs
+        assert ctor_kwargs["default_headers"] == {"X-Title": "apicol"}
+
+    def test_default_extra_headers_is_none(self) -> None:
+        client = Client(backend="openai-compatible", api_key="sk-x", model="gpt-5")
+        assert client.config.extra_headers is None

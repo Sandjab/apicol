@@ -7,6 +7,50 @@ et le projet adhère au [Versioning Sémantique](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-16
+
+### Added
+
+- Backend `openai-compatible` (PRD-004) : SDK OpenAI officiel vers tout
+  endpoint qui expose `/v1/chat/completions` (OpenAI, Mistral, Ollama, vLLM,
+  LM Studio, OpenRouter, Groq, DeepSeek, Together AI, Fireworks, Anyscale,
+  proxy custom). Disponible via `APICOL_TYPE=openai-compatible` ou
+  `Client(backend="openai-compatible", ...)`.
+- Nouveau kwarg `extra_headers: dict[str, str] | None` sur `Client` et
+  `AsyncClient` pour attacher des headers HTTP à la connexion (utile pour
+  OpenRouter : `HTTP-Referer`, `X-Title` ; ou tout gateway custom).
+  Honoré par les backends `openai-compatible` et `anthropic`, ignoré
+  silencieusement par `litellm`.
+- Dépendance directe `openai>=1.50` (était transitive via `litellm`).
+- Tests unitaires `test_openai_compatible_backend.py` (13 cas), extension
+  des suites existantes (`test_config.py`, `test_route.py`, `test_client.py`)
+  pour le nouveau backend et pour `extra_headers`. 161 tests passent (5
+  intégration live skippés).
+
+### Changed
+
+- Positionnement du backend `litellm` : désormais réservé aux providers
+  qui ne parlent pas OpenAI nativement (Gemini natif Google AI Studio /
+  Vertex AI, Bedrock, Azure OpenAI, Cohere, Replicate, HuggingFace
+  Inference). Les endpoints OpenAI-compatibles (Ollama, vLLM, OpenRouter…)
+  passent désormais par `openai-compatible` recommandé.
+- SPEC.md : nouveau tableau de règle de décision (« quel backend
+  choisir »), mapping `APICOL_KEY` documenté pour `openai-compatible`,
+  table de mapping LiteLLM provider → env var explicitée, colonne
+  `openai-compatible` dans le tableau de compatibilité.
+- ARCHITECTURE.md : nouvelle décision D11 (backend `openai-compatible`
+  distinct de LiteLLM), diagramme étendu à trois backends.
+- README.md : section « Pourquoi cette lib » étendue (3 apports au lieu
+  de 2), tableau de décision, exemples Ollama et OpenRouter via
+  `openai-compatible`, badges et statut v0.2.0.
+
+### Documentation
+
+- PRD-004 (Backend `openai-compatible` à côté de LiteLLM) : motivation,
+  options évaluées (A retenue : ajouter à côté de LiteLLM ; B rejetée :
+  remplacer LiteLLM ; C rejetée : statu quo ; D rejetée : fallback
+  automatique), plan d'implémentation et métriques de succès.
+
 ## [0.1.0] - 2026-05-14
 
 ### Added

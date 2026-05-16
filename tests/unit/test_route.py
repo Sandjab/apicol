@@ -6,6 +6,7 @@ import pytest
 
 from apicol._backends import anthropic as anthropic_backend
 from apicol._backends import litellm as litellm_backend
+from apicol._backends import openai_compatible as openai_compatible_backend
 from apicol._config import Config
 from apicol._errors import ConfigError
 from apicol._route import pick_backend
@@ -23,6 +24,12 @@ class TestPickBackend:
         sync_cb, async_cb = pick_backend(cfg)
         assert sync_cb is litellm_backend.complete
         assert async_cb is litellm_backend.acomplete
+
+    def test_openai_compatible_returns_openai_compatible_callables(self) -> None:
+        cfg = Config(backend="openai-compatible", api_key="sk-x", model="gpt-5")
+        sync_cb, async_cb = pick_backend(cfg)
+        assert sync_cb is openai_compatible_backend.complete
+        assert async_cb is openai_compatible_backend.acomplete
 
     def test_pick_backend_rejects_claude_cli_via_config(self) -> None:
         with pytest.raises(ConfigError):

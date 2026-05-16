@@ -13,27 +13,54 @@ Valeurs acceptées :
 | Valeur | Backend |
 |--------|---------|
 | `anthropic` | SDK Anthropic natif |
-| `litellm` | LiteLLM (dispatch interne vers OpenAI, Gemini, Ollama, vLLM, LM Studio, OpenRouter, etc.) |
+| `openai-compatible` | SDK OpenAI vers tout endpoint `/v1/chat/completions` (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek, Together, Fireworks, Anyscale, gateway custom…) |
+| `litellm` | LiteLLM pour les providers qui ne parlent pas OpenAI nativement (Gemini natif Google AI Studio / Vertex AI, Bedrock, Azure OpenAI, Cohere, Replicate, HuggingFace Inference) |
 
 Toute autre valeur (y compris `claude_cli`, `openai`, `gemini`) lève `ConfigError`. En particulier, `claude_cli` est rejeté avec un message explicite renvoyant vers `claude_cli_chat()`.
+
+### Quel backend choisir ?
+
+| Tu veux parler à… | Utilise |
+|---|---|
+| OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek, Together, Fireworks, Anyscale, n'importe quel proxy OpenAI-compatible | `backend="openai-compatible"` |
+| Gemini natif (Google AI Studio / Vertex AI), Bedrock, Azure OpenAI, Cohere, Replicate, HuggingFace Inference | `backend="litellm"` |
+| API Anthropic native (caching fin, citations, PDF, batch, thinking détaillé) | `backend="anthropic"` |
+| `claude -p` localement (dev only, conformité TOS) | `claude_cli_chat()` (pas un backend de `chat()`) |
 
 ### `APICOL_KEY` (requis sauf cas locaux)
 
 Clé d'API propagée selon le backend :
 
 - `anthropic` → utilisée comme clé Anthropic
+- `openai-compatible` → passée telle quelle au SDK OpenAI (`openai.OpenAI(api_key=...)`). **Pas de magie** : la clé est ce qu'elle est, le SDK l'envoie en `Authorization: Bearer ...` à l'endpoint pointé par `APICOL_URL`.
 - `litellm` → utilisée selon le provider du modèle (LiteLLM lit son propre nom d'env var par provider — voir ci-dessous)
 
 **Cas où la clé n'est pas requise** : modèles locaux (Ollama, LM Studio, vLLM) accédés via `APICOL_URL`. Dans ce cas la variable peut être absente ou contenir une valeur factice (`"ollama"`, `"local"`).
 
 **Comportement avec LiteLLM** : `apicol` injecte `APICOL_KEY` dans le bon nom d'env var attendu par LiteLLM pour le provider détecté à partir de `APICOL_MODEL`. Exemple : `model=openai/gpt-5` → injection dans `OPENAI_API_KEY`. C'est la seule magie acceptée sur les env vars (sinon l'utilisateur devrait connaître les conventions LiteLLM).
 
+**Mappings LiteLLM observés** (déduits du préfixe `provider/` de `APICOL_MODEL`) :
+
+| Préfixe modèle | Env var injectée |
+|---|---|
+| `openai/...` | `OPENAI_API_KEY` |
+| `gemini/...` | `GEMINI_API_KEY` |
+| `anthropic/...` | `ANTHROPIC_API_KEY` |
+| `cohere/...` | `COHERE_API_KEY` |
+| `openrouter/...` | `OPENROUTER_API_KEY` |
+| `ollama/...` | `OLLAMA_API_KEY` (ignorée par Ollama en pratique) |
+| `lm_studio/...` | `LM_STUDIO_API_KEY` |
+| `<x>/...` | `<X>_API_KEY` (uppercase, fallback générique) |
+
+**Asymétrie volontaire vs `openai-compatible`** : avec `openai-compatible`, pas d'injection — l'utilisateur choisit lui-même son endpoint (`APICOL_URL`) et y associe la clé qui correspond. C'est plus explicite et c'est cohérent avec le fait qu'on ne tente pas de détecter le provider à partir d'un nom de modèle (un `qwen3:32b` peut servir derrière Ollama, vLLM ou OpenRouter — l'URL fait la différence, pas le nom).
+
 ### `APICOL_MODEL` (requis)
 
 Nom du modèle. Format :
 
 - Pour `api_type=anthropic` : nom Anthropic direct (ex. `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`).
-- Pour `api_type=litellm` : format `provider/modèle` attendu par LiteLLM (ex. `openai/gpt-5`, `gemini/gemini-2.5-pro`, `ollama/qwen3:32b`, `openrouter/anthropic/claude-3.5-sonnet`).
+- Pour `api_type=openai-compatible` : nom de modèle nu, sans préfixe provider (ex. `gpt-5`, `gpt-5-mini`, `qwen3:32b` pour Ollama, `meta-llama/Meta-Llama-3.1-70B-Instruct` pour vLLM, `anthropic/claude-haiku-4-5` pour OpenRouter — la convention `provider/modele` d'OpenRouter est leur format, pas le nôtre).
+- Pour `api_type=litellm` : format `provider/modèle` attendu par LiteLLM (ex. `gemini/gemini-2.5-pro`, `bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0`, `azure/gpt-4-deployment`, `cohere/command-r-plus`).
 
 ### `APICOL_URL` (optionnel)
 
@@ -50,16 +77,17 @@ Si absent, chaque backend utilise son URL par défaut.
 
 L'interface unifiée existe sous deux formes équivalentes : un objet **`Client`** (ou `AsyncClient`) configurable explicitement, et des **fonctions globales** (`chat`, `achat`) qui en sont des wrappers de commodité utilisant les variables d'environnement.
 
-### `Client(backend, *, api_key=None, model=None, base_url=None)`
+### `Client(backend, *, api_key=None, model=None, base_url=None, extra_headers=None)`
 
-Objet de configuration **immutable** (dataclass frozen). Encapsule un backend, une clé, un modèle, et éventuellement une URL custom.
+Objet de configuration **immutable** (dataclass frozen). Encapsule un backend, une clé, un modèle, et éventuellement une URL custom et des headers de connexion.
 
 **Paramètres** :
 
-- `backend: Literal["anthropic", "litellm"]` — type de backend. La valeur `"claude_cli"` est rejetée avec `ConfigError`.
+- `backend: Literal["anthropic", "openai-compatible", "litellm"]` — type de backend. La valeur `"claude_cli"` est rejetée avec `ConfigError`.
 - `api_key: str | None` — clé d'API. Requise sauf pour les backends locaux accédés via `base_url`.
 - `model: str | None` — nom du modèle. Requis pour pouvoir appeler `.chat()` sans override.
 - `base_url: str | None` — endpoint custom.
+- `extra_headers: dict[str, str] | None` — headers HTTP attachés à la connexion (ex. `{"HTTP-Referer": "...", "X-Title": "..."}` pour OpenRouter). Honoré par les backends `openai-compatible` (via `default_headers` du SDK OpenAI) et `anthropic` (via le SDK Anthropic) ; **ignoré silencieusement** par `litellm` qui n'expose pas de propagation propre au niveau du Client.
 
 **Méthodes** :
 
@@ -74,7 +102,7 @@ Les paramètres de `chat()` sont identiques à ceux de la fonction globale `chat
 
 - `ConfigError` — backend invalide, `claude_cli` interdit, ou combinaison de paramètres incohérente.
 
-### `AsyncClient(backend, *, api_key=None, model=None, base_url=None)`
+### `AsyncClient(backend, *, api_key=None, model=None, base_url=None, extra_headers=None)`
 
 Pendant async de `Client`. Mêmes paramètres, mêmes erreurs, méthodes correspondantes :
 
@@ -245,21 +273,22 @@ Version asynchrone. Utilise `asyncio.create_subprocess_exec`. Signature identiqu
 
 ## Compatibilité backends
 
-| Feature | `anthropic` (niveau 1) | `anthropic` (niveau 2) | `litellm` | `claude_cli` |
-|---------|-----------------------|------------------------|-----------|--------------|
-| Chat completion sync | ✅ | ✅ | ✅ | ✅ |
-| Chat completion async | ✅ | ✅ | ✅ | ✅ |
-| System message | ✅ | ✅ | ✅ | ✅ (aplati) |
-| `temperature`, `max_tokens` | ✅ | ✅ | ✅ | ❌ (CLI) |
-| `reasoning_effort` | ✅ (mappé) | ✅ (natif `thinking`) | ✅ (passé tel quel) | ❌ |
-| Prompt caching | ⚠️ (via `extra_body`) | ✅ (natif, breakpoints fins) | ⚠️ (selon provider) | ❌ |
-| Citations | ❌ | ✅ | ❌ | ❌ |
-| PDF input | ❌ | ✅ | ❌ | ❌ |
-| Streaming | ❌ v0.1 | ✅ (SDK natif) | ❌ v0.1 | ❌ |
-| Tool calls | ❌ v0.1 | ✅ (SDK natif) | ❌ v0.1 | ❌ |
-| Batch API | ❌ | ✅ (SDK natif) | ⚠️ (selon provider) | ❌ |
+| Feature | `anthropic` (niveau 1) | `anthropic` (niveau 2) | `openai-compatible` | `litellm` | `claude_cli` |
+|---------|-----------------------|------------------------|---------------------|-----------|--------------|
+| Chat completion sync | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Chat completion async | ✅ | ✅ | ✅ | ✅ | ✅ |
+| System message | ✅ | ✅ | ✅ | ✅ | ✅ (aplati) |
+| `temperature`, `max_tokens` | ✅ | ✅ | ✅ | ✅ | ❌ (CLI) |
+| `reasoning_effort` | ✅ (mappé) | ✅ (natif `thinking`) | ✅ (natif o-series/gpt-5) | ✅ (passé tel quel) | ❌ |
+| `extra_headers` (connexion) | ✅ | ✅ (via SDK) | ✅ (`default_headers`) | ⚠️ (ignoré) | ❌ |
+| Prompt caching | ⚠️ (via `extra_body`) | ✅ (natif, breakpoints fins) | ⚠️ (selon endpoint) | ⚠️ (selon provider) | ❌ |
+| Citations | ❌ | ✅ | ❌ | ❌ | ❌ |
+| PDF input | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Streaming | ❌ v0.2 | ✅ (SDK natif) | ❌ v0.2 | ❌ v0.2 | ❌ |
+| Tool calls | ❌ v0.3 | ✅ (SDK natif) | ❌ v0.3 | ❌ v0.3 | ❌ |
+| Batch API | ❌ | ✅ (SDK natif) | ⚠️ (selon endpoint) | ⚠️ (selon provider) | ❌ |
 
-Légende : ✅ supporté · ⚠️ supporté avec limites/conventions · ❌ non supporté en v0.1
+Légende : ✅ supporté · ⚠️ supporté avec limites/conventions · ❌ non supporté en v0.2
 
 ## Exemples de scénarios
 
@@ -282,14 +311,43 @@ response = apicol.chat(
 
 # Run 2 : Ollama local — même code applicatif
 os.environ.update({
+    "APICOL_TYPE": "openai-compatible",
+    "APICOL_KEY": "ollama",  # factice, accepté par le SDK OpenAI
+    "APICOL_MODEL": "qwen3:32b",
+    "APICOL_URL": "http://localhost:11434/v1",
+})
+response = apicol.chat(
+    messages=[{"role": "user", "content": "Explique la relativité"}],
+)
+
+# Run 3 : Gemini natif via LiteLLM — toujours le même code
+os.environ.update({
     "APICOL_TYPE": "litellm",
-    "APICOL_MODEL": "ollama/qwen3:32b",
-    "APICOL_URL": "http://localhost:11434",
+    "APICOL_KEY": "...",
+    "APICOL_MODEL": "gemini/gemini-2.5-pro",
 })
 response = apicol.chat(
     messages=[{"role": "user", "content": "Explique la relativité"}],
     reasoning_effort="high",
 )
+```
+
+### Scénario 1ter — OpenRouter avec headers de tracking (`openai-compatible`)
+
+```python
+import apicol
+
+openrouter = apicol.Client(
+    backend="openai-compatible",
+    api_key="sk-or-...",
+    model="anthropic/claude-haiku-4-5",
+    base_url="https://openrouter.ai/api/v1",
+    extra_headers={
+        "HTTP-Referer": "https://github.com/Sandjab/apicol",
+        "X-Title": "apicol",
+    },
+)
+response = openrouter.chat(messages=[{"role": "user", "content": "Bonjour"}])
 ```
 
 ### Scénario 1bis — Multi-backend simultané (Client explicite)

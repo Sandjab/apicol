@@ -4,16 +4,16 @@
 [![Last commit](https://img.shields.io/github/last-commit/Sandjab/apicol)](https://github.com/Sandjab/apicol/commits/main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-blue.svg)](https://www.python.org)
-[![Version](https://img.shields.io/badge/Version-v0.1.0-green.svg)](https://github.com/Sandjab/apicol/releases/tag/v0.1.0)
+[![Version](https://img.shields.io/badge/Version-v0.2.0-green.svg)](https://github.com/Sandjab/apicol/releases/tag/v0.2.0)
 [![Visitors](https://komarev.com/ghpvc/?username=sandjab-apicol&label=Visitors&color=0e75b6&style=flat)](https://github.com/Sandjab/apicol)
 
-Couche d'abstraction Python pour appeler un LLM via plusieurs backends interchangeables. Une interface unifiée au format OpenAI pour parler à : **API Anthropic native** (avec caching, thinking, citations), **LiteLLM** (qui route vers OpenAI, Gemini, Mistral, Ollama, vLLM, LM Studio, OpenRouter et 100+ providers), et **Claude Code CLI** (`claude -p`, usage dev local uniquement).
+Couche d'abstraction Python pour appeler un LLM via plusieurs backends interchangeables. Une interface unifiée au format OpenAI pour parler à : **API Anthropic native** (avec caching, thinking, citations), **OpenAI-compatible** via le SDK officiel `openai` (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek, Together, Fireworks et tout endpoint qui expose `/v1/chat/completions`), **LiteLLM** pour les providers non-OpenAI-compatibles natifs (Gemini natif, Bedrock, Vertex AI, Azure OpenAI, Cohere), et **Claude Code CLI** (`claude -p`, usage dev local uniquement).
 
 Sélection du backend par variables d'environnement *ou* par objet `Client` configurable. Plusieurs backends peuvent cohabiter dans le même process (bench, fallback applicatif, comparaison).
 
 ## Statut
 
-**v0.1.0 — alpha.** Implémentation complète des trois backends (Anthropic natif, LiteLLM, `claude -p` dev-only), surface publique stable, ≥95 % de couverture. Streaming et tool calls reportés à v0.2/v0.3. Documentation associée :
+**v0.2.0 — alpha.** Implémentation complète des quatre backends (Anthropic natif, OpenAI-compatible, LiteLLM, `claude -p` dev-only), surface publique stable, ≥95 % de couverture. Streaming et tool calls reportés à v0.3/v0.4. Documentation associée :
 
 - `README.md` — ce fichier
 - `CLAUDE.md` — instructions pour Claude Code travaillant sur ce repo
@@ -21,16 +21,26 @@ Sélection du backend par variables d'environnement *ou* par objet `Client` conf
 - `SPEC.md` — contrat d'API publique
 - `CHANGELOG.md` — historique des versions
 - `pyproject.toml` — métadonnées du package
-- `docs/prd/` — PRD-001 (architecture deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend simultané)
+- `docs/prd/` — PRD-001 (architecture deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend simultané), PRD-004 (backend `openai-compatible`)
 
 ## Pourquoi cette lib
 
-LiteLLM résout déjà 90 % du problème (interface unifiée, 100+ providers, format OpenAI partout). `apicol` ajoute deux choses que LiteLLM ne fait pas bien :
+LiteLLM résout une partie du problème (interface unifiée, 100+ providers, format OpenAI partout). `apicol` ajoute trois choses que LiteLLM seul ne fait pas bien :
 
-1. **Un chemin Anthropic natif préservé.** Le compatibility layer OpenAI d'Anthropic ne supporte ni le prompt caching ni le détail du thinking. Pour les usages long-context avec caching agressif, il faut le SDK Anthropic natif. `apicol` expose explicitement cette voie quand `APICOL_TYPE=anthropic`, via une méthode `client.anthropic_native()`.
-2. **Un backend `claude -p`** pour le dev local interactif. Strictement marqué « dev only » et exposé via une fonction séparée — **pas** routé dans l'interface unifiée — pour éviter toute confusion avec un usage programmatique qui violerait les TOS Anthropic (voir PRD-002).
+1. **Un chemin Anthropic natif préservé.** Le compatibility layer OpenAI d'Anthropic ne supporte ni le prompt caching avec breakpoints fins ni le détail du thinking. Pour les usages long-context avec caching agressif, il faut le SDK Anthropic natif. `apicol` expose explicitement cette voie quand `APICOL_TYPE=anthropic`, via une méthode `client.anthropic_native()`.
+2. **Un chemin direct SDK OpenAI** pour les endpoints OpenAI-compatibles (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek…). Pas besoin de charger LiteLLM pour parler à Ollama. Headers de connexion typés (`extra_headers`) utiles pour OpenRouter (`HTTP-Referer`, `X-Title`).
+3. **Un backend `claude -p`** pour le dev local interactif. Strictement marqué « dev only » et exposé via une fonction séparée — **pas** routé dans l'interface unifiée — pour éviter toute confusion avec un usage programmatique qui violerait les TOS Anthropic (voir PRD-002).
 
-Le reste (OpenAI, Gemini, modèles locaux, OpenRouter) est délégué à LiteLLM sans réinventer la roue.
+LiteLLM reste pour ce qu'il fait vraiment bien : les providers qui ne parlent pas OpenAI nativement (Gemini natif Google AI Studio / Vertex AI, Bedrock, Azure OpenAI, Cohere, Replicate, HuggingFace Inference). Voir [PRD-004](docs/prd/PRD-004-backend-openai-compatible.md) pour le détail du tradeoff.
+
+### Quel backend choisir ?
+
+| Tu veux parler à… | Utilise |
+|---|---|
+| OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek, Together, Fireworks, Anyscale, ou tout proxy OpenAI-compatible | `backend="openai-compatible"` |
+| Gemini natif (Google AI Studio / Vertex AI), Bedrock, Azure OpenAI, Cohere, Replicate, HuggingFace Inference | `backend="litellm"` |
+| API Anthropic native avec caching fin, citations, PDF, batch, thinking détaillé | `backend="anthropic"` |
+| `claude -p` localement (dev only) | `claude_cli_chat()` (fonction séparée, pas un backend de `chat()`) |
 
 ## Installation
 
@@ -93,7 +103,8 @@ uv add "apicol @ git+https://github.com/Sandjab/apicol.git"
 `apicol` installe automatiquement :
 
 - `anthropic` (SDK natif pour le backend Anthropic et l'échappatoire native)
-- `litellm` (délégation pour tous les autres backends)
+- `openai` (SDK officiel pour le backend `openai-compatible`)
+- `litellm` (délégation pour les providers natifs exotiques : Gemini, Bedrock, Vertex AI, Azure, Cohere)
 
 Python ≥ 3.10 requis.
 
@@ -101,10 +112,10 @@ Python ≥ 3.10 requis.
 
 | Variable | Valeurs | Rôle |
 |----------|---------|------|
-| `APICOL_TYPE` | `anthropic`, `litellm` | Backend par défaut (utilisé par les fonctions globales `chat`, `achat`) |
-| `APICOL_KEY` | string | Clé d'API par défaut |
-| `APICOL_MODEL` | string | Modèle par défaut (ex. `claude-opus-4-7`, `openai/gpt-5`, `ollama/qwen3:32b`) |
-| `APICOL_URL` | URL (optionnel) | Endpoint custom (vLLM local, LM Studio, gateway, etc.) |
+| `APICOL_TYPE` | `anthropic`, `openai-compatible`, `litellm` | Backend utilisé par les fonctions globales `chat`, `achat` |
+| `APICOL_KEY` | string | Clé d'API |
+| `APICOL_MODEL` | string | Modèle (ex. `claude-opus-4-7`, `gpt-5`, `qwen3:32b`, `gemini/gemini-2.5-pro`) |
+| `APICOL_URL` | URL (optionnel) | Endpoint custom (vLLM, Ollama, LM Studio, OpenRouter, gateway…) |
 
 Pour `claude_cli_chat()` aucune variable n'est requise.
 
@@ -132,9 +143,21 @@ print(response["choices"][0]["message"]["content"])
 Bascule de backend sans toucher au code applicatif :
 
 ```bash
-export APICOL_TYPE=litellm
-export APICOL_MODEL=openai/gpt-5
+# OpenAI direct via SDK officiel
+export APICOL_TYPE=openai-compatible
+export APICOL_MODEL=gpt-5
 export APICOL_KEY=sk-...
+
+# Ollama local (clé factice acceptée par le SDK OpenAI)
+export APICOL_TYPE=openai-compatible
+export APICOL_MODEL=qwen3:32b
+export APICOL_KEY=ollama
+export APICOL_URL=http://localhost:11434/v1
+
+# Gemini natif via LiteLLM
+export APICOL_TYPE=litellm
+export APICOL_MODEL=gemini/gemini-2.5-pro
+export APICOL_KEY=...
 ```
 
 ### Mode async — `achat`
@@ -165,34 +188,61 @@ claude = apicol.Client(
 )
 
 gpt = apicol.Client(
-    backend="litellm",
+    backend="openai-compatible",
     api_key="sk-...",
-    model="openai/gpt-5",
+    model="gpt-5",
 )
 
 qwen_local = apicol.Client(
+    backend="openai-compatible",
+    api_key="ollama",
+    model="qwen3:32b",
+    base_url="http://localhost:11434/v1",
+)
+
+gemini = apicol.Client(
     backend="litellm",
-    model="ollama/qwen3:32b",
-    base_url="http://localhost:11434",
+    api_key="...",
+    model="gemini/gemini-2.5-pro",
 )
 
 prompt = [{"role": "user", "content": "Explique la relativité en 3 phrases"}]
 
-# Bench parallèle
-for name, client in [("claude", claude), ("gpt", gpt), ("qwen", qwen_local)]:
+# Bench parallèle — quatre backends, trois SDKs sous-jacents
+for name, client in [("claude", claude), ("gpt", gpt), ("qwen", qwen_local), ("gemini", gemini)]:
     response = client.chat(prompt)
     print(f"\n=== {name} ===\n{response['choices'][0]['message']['content']}")
 ```
 
 Un `Client` est **immutable** après construction. Pour changer de configuration, on crée un nouveau client. Cette rigidité simplifie le raisonnement multi-instance.
 
+### OpenRouter avec headers de tracking — `extra_headers`
+
+OpenRouter exige un header `HTTP-Referer` et accepte un `X-Title` pour identifier ton appli. Avec le backend `openai-compatible`, ces headers sont attachés à la connexion (pas répétés par appel) :
+
+```python
+import apicol
+
+openrouter = apicol.Client(
+    backend="openai-compatible",
+    api_key="sk-or-...",
+    model="anthropic/claude-haiku-4-5",  # format OpenRouter
+    base_url="https://openrouter.ai/api/v1",
+    extra_headers={
+        "HTTP-Referer": "https://github.com/Sandjab/apicol",
+        "X-Title": "apicol",
+    },
+)
+response = openrouter.chat(messages=[{"role": "user", "content": "Bonjour"}])
+```
+
 ### Mode multi-backend async — `AsyncClient`
 
 ```python
 import asyncio, apicol
 
-claude = apicol.AsyncClient(backend="anthropic", api_key="...", model="claude-opus-4-7")
-gpt    = apicol.AsyncClient(backend="litellm",   api_key="...", model="openai/gpt-5")
+claude = apicol.AsyncClient(backend="anthropic",          api_key="...", model="claude-opus-4-7")
+gpt    = apicol.AsyncClient(backend="openai-compatible",  api_key="...", model="gpt-5")
 
 async def bench():
     return await asyncio.gather(
@@ -274,4 +324,4 @@ Détails complets et table de mapping `reasoning_effort` → `thinking` dans [SP
 
 ## Licence
 
-À définir (MIT probablement).
+[MIT](LICENSE) — Copyright (c) 2026 Sandjab.

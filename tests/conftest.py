@@ -87,6 +87,54 @@ def mock_litellm(mocker: pytest_mock.MockerFixture) -> MagicMock:
 
 
 @pytest.fixture
+def mock_openai_sdk(mocker: pytest_mock.MockerFixture) -> MagicMock:
+    """Patch openai.OpenAI et openai.AsyncOpenAI.
+
+    Retourne un namespace avec .sync_client, .async_client (les instances
+    mockées du SDK), .sync_ctor, .async_ctor (les constructeurs patchés —
+    utiles pour asserter les kwargs passés à openai.OpenAI(...)) et
+    .response (le ChatCompletion mocké renvoyé par chat.completions.create).
+    """
+    response_dict: dict[str, object] = {
+        "id": "chatcmpl-test",
+        "model": "gpt-test",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hello"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    fake_response = MagicMock()
+    fake_response.model_dump.return_value = response_dict
+
+    sync_client = MagicMock()
+    sync_client.chat.completions.create.return_value = fake_response
+
+    async_client = MagicMock()
+
+    async def _async_create(**kwargs: object) -> MagicMock:
+        return fake_response
+
+    async_client.chat.completions.create.side_effect = _async_create
+
+    sync_ctor = mocker.patch("openai.OpenAI", return_value=sync_client)
+    async_ctor = mocker.patch("openai.AsyncOpenAI", return_value=async_client)
+
+    ns = MagicMock()
+    ns.sync_client = sync_client
+    ns.async_client = async_client
+    ns.sync_ctor = sync_ctor
+    ns.async_ctor = async_ctor
+    ns.response = fake_response
+    ns.response_dict = response_dict
+    return ns
+
+
+@pytest.fixture
 def mock_subprocess(mocker: pytest_mock.MockerFixture) -> MagicMock:
     """Patch subprocess.run et asyncio.create_subprocess_exec pour claude_cli.
 
