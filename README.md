@@ -325,3 +325,12 @@ Détails complets et table de mapping `reasoning_effort` → `thinking` dans [SP
 ## Licence
 
 [MIT](LICENSE) — Copyright (c) 2026 Sandjab.
+
+---
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/dashboard-dark.svg">
+  <img src="assets/dashboard-light.svg" alt="apicol — repo dashboard (Blueprint theme via cartouche-svg)">
+</picture>
+
+<sub>Dashboard généré par [cartouche-svg](https://github.com/Sandjab/cartouche) — thème `blueprint`. Pour le rafraîchir automatiquement toutes les 6h, déposer le workflow `examples/workflows/repo-dashboard.yml` du repo cartouche dans `.github/workflows/`.</sub>
