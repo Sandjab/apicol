@@ -92,7 +92,8 @@ async def astream(
     call_kwargs = _build_call_kwargs(messages, config, **kwargs)
     call_kwargs["stream"] = True
     try:
-        async for chunk in await litellm.acompletion(**call_kwargs):
+        response = await litellm.acompletion(**call_kwargs)
+        async for chunk in response:
             yield chunk.model_dump() if hasattr(chunk, "model_dump") else dict(chunk)
     except litellm.exceptions.APIError as e:
         raise BackendError(f"LiteLLM API error: {e}") from e

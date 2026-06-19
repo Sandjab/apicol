@@ -96,7 +96,8 @@ async def astream(
     call_kwargs = _build_call_kwargs(messages, config, **kwargs)
     call_kwargs["stream"] = True
     try:
-        async for chunk in await client.chat.completions.create(**call_kwargs):
+        response = await client.chat.completions.create(**call_kwargs)
+        async for chunk in response:
             yield chunk.model_dump()
     except openai.APIError as e:
         raise BackendError(f"OpenAI-compatible API error: {e}") from e

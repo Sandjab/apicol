@@ -115,8 +115,8 @@ def _anthropic_to_openai(response: Any) -> dict[str, Any]:
     text_parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
     content = "".join(text_parts)
 
-    input_tokens = getattr(response.usage, "input_tokens", 0)
-    output_tokens = getattr(response.usage, "output_tokens", 0)
+    input_tokens = getattr(response.usage, "input_tokens", 0) or 0
+    output_tokens = getattr(response.usage, "output_tokens", 0) or 0
 
     return {
         "id": response.id,
@@ -150,8 +150,8 @@ def _final_chunk(model: str, stop_reason: str | None, usage: Any) -> dict[str, A
         "choices": [{"index": 0, "delta": {}, "finish_reason": mapped}],
     }
     if usage is not None:
-        it = getattr(usage, "input_tokens", 0)
-        ot = getattr(usage, "output_tokens", 0)
+        it = getattr(usage, "input_tokens", 0) or 0
+        ot = getattr(usage, "output_tokens", 0) or 0
         chunk["usage"] = {"prompt_tokens": it, "completion_tokens": ot, "total_tokens": it + ot}
     return chunk
 
