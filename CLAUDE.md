@@ -6,10 +6,11 @@ Instructions pour Claude Code travaillant sur ce repo.
 
 ## État actuel du repo
 
-**Phase de design — aucun code Python n'existe encore.** `src/apicol/` est vide. La « Structure cible » plus bas décrit ce qu'il **faudra** créer, pas ce qui existe. Tout ce qui est livré pour l'instant est documentaire :
+**v0.2.0 (alpha) — implémenté et testé.** La surface publique v0.1 est complète et stable ; le code vit dans `src/apicol/`. Les quatre backends sont opérationnels (Anthropic natif, `openai-compatible`, LiteLLM, `claude -p` dev-only), sync **et** async en miroir strict. Suite verte : **161 tests passants, 5 skippés** (intégration live), couverture ≥ 95 %.
 
-- `README.md` (vue produit), `ARCHITECTURE.md` (décisions D1–D10), `SPEC.md` (contrat d'API v0.1)
-- `docs/prd/` : `BACKLOG.md` + PRD-001 (deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend `Client`)
+- Documentaire : `README.md` (vue produit), `ARCHITECTURE.md` (décisions D1–D11), `SPEC.md` (contrat d'API), `CHANGELOG.md`
+- `docs/prd/` : `BACKLOG.md` + PRD-001 (deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend `Client`), PRD-004 (`openai-compatible`) — tous marqués *Implémenté*
+- Reste à faire (backlog non PRD-isé) : `litellm` optionnel (PRD-005 envisagé), streaming (v0.3), tool calls (v0.3), `embed()` (v0.4)
 
 Avant tout travail non-trivial, vérifier que la décision est déjà tranchée dans un PRD. Si elle ne l'est pas, **rédiger un PRD avant de coder** plutôt que d'improviser.
 
@@ -27,13 +28,14 @@ Si tu trouves une contradiction, **flag-la** (Règle 7 globale) au lieu de moyen
 
 ## Contexte projet en 30 secondes
 
-`apicol` est une couche d'abstraction Python qui route les appels LLM vers trois familles de backends :
+`apicol` est une couche d'abstraction Python qui route les appels LLM vers quatre familles de backends :
 
 1. **API Anthropic native** (SDK `anthropic`) — pour le caching, le thinking complet, les citations
-2. **LiteLLM** — pour tout le reste (OpenAI, Gemini, Ollama, vLLM, LM Studio, OpenRouter)
-3. **`claude -p` subprocess** — usage dev local uniquement, fonction séparée
+2. **`openai-compatible`** (SDK `openai`) — tout endpoint exposant `/v1/chat/completions` : OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek… (D11 / PRD-004)
+3. **LiteLLM** — réservé aux providers qui ne parlent pas OpenAI nativement : Gemini natif, Bedrock, Vertex AI, Azure OpenAI, Cohere
+4. **`claude -p` subprocess** — usage dev local uniquement, fonction séparée (non routable)
 
-La sélection se fait par `APICOL_TYPE`. Surface API en format OpenAI (lingua franca).
+La sélection des backends 1–3 se fait par `APICOL_TYPE` (`anthropic` | `openai-compatible` | `litellm`). Surface API en format OpenAI (lingua franca).
 
 ## Principes directeurs (à respecter sans demander)
 
@@ -49,13 +51,14 @@ La sélection se fait par `APICOL_TYPE`. Surface API en format OpenAI (lingua fr
 ## Stack
 
 - Python 3.10+ (pour `match`/`case` et union types modernes)
-- `anthropic` SDK officiel (sync + async)
-- `litellm` (SDK Python, pas le proxy)
-- `pytest` + `pytest-asyncio` pour les tests
+- `anthropic` SDK officiel (sync + async) — backend Anthropic natif + échappatoire niveau 2
+- `openai` SDK officiel (sync + async) — backend `openai-compatible`
+- `litellm` (SDK Python, pas le proxy) — providers non-OpenAI natifs
+- `pytest` + `pytest-asyncio` + `hypothesis` (property-based) pour les tests
 - `ruff` (lint + format) + `mypy --strict` pour la qualité
 - Pas de `requests`, pas de `httpx` direct (les SDKs gèrent)
 
-## Structure cible
+## Structure du code (réelle, v0.2.0)
 
 ```
 apicol/
@@ -69,28 +72,28 @@ apicol/
 │   ├── BACKLOG.md
 │   ├── PRD-001-architecture-deux-niveaux.md
 │   ├── PRD-002-separation-claude-cli.md
-│   └── PRD-003-multi-backend-simultane.md
+│   ├── PRD-003-multi-backend-simultane.md
+│   └── PRD-004-backend-openai-compatible.md
 ├── src/
 │   └── apicol/
-│       ├── __init__.py        # expose Client, AsyncClient, chat, achat, anthropic_client, anthropic_async_client, claude_cli_chat, claude_cli_achat
+│       ├── __init__.py        # expose Client, AsyncClient, chat, achat, anthropic_client, anthropic_async_client, claude_cli_chat, claude_cli_achat, erreurs, __version__
 │       ├── _config.py         # Config (dataclass frozen) + load_from_env()
 │       ├── _client.py         # Client, AsyncClient + cache lazy du client implicite
-│       ├── _errors.py         # ConfigError, BackendUnavailableError, etc.
-│       ├── _route.py          # pick_backend(config) -> Callable
+│       ├── _errors.py         # ApicolError, ConfigError, BackendUnavailableError, BackendError, NotSupportedError
+│       ├── _route.py          # pick_backend(config) -> (sync_callable, async_callable)
 │       └── _backends/
 │           ├── __init__.py
-│           ├── anthropic.py   # SDK anthropic, traduction OpenAI↔Anthropic à la frontière
-│           ├── litellm.py     # délégation à litellm.completion / acompletion
-│           └── claude_cli.py  # subprocess wrapper, fonction publique séparée
+│           ├── anthropic.py            # SDK anthropic, traduction OpenAI↔Anthropic à la frontière
+│           ├── openai_compatible.py    # SDK openai, pass-through vers tout endpoint /v1/chat/completions
+│           ├── litellm.py              # délégation à litellm.completion / acompletion
+│           └── claude_cli.py           # subprocess wrapper, fonction publique séparée (non routable)
 └── tests/
     ├── conftest.py
-    ├── test_config.py
-    ├── test_client.py            # Client, AsyncClient, immutabilité, multi-instance
-    ├── test_v01_backcompat.py    # fonctions globales = wrappers, behavior unchanged
-    ├── test_route.py
-    ├── test_anthropic_backend.py
-    ├── test_litellm_backend.py
-    └── test_claude_cli_backend.py
+    ├── unit/                  # test_config, test_client, test_route, test_errors, test_smoke,
+    │                          #   test_global_wrappers, test_anthropic_backend, test_litellm_backend,
+    │                          #   test_openai_compatible_backend, test_claude_cli_backend
+    ├── property/              # test_config_parsing, test_message_flattening, test_openai_anthropic_codec (Hypothesis)
+    └── integration/           # test_anthropic_live, test_litellm_live, test_claude_cli_live (skippés par défaut)
 ```
 
 ## Conventions de code
@@ -137,7 +140,7 @@ make check                           # à créer : format + lint + types + tests
 2. **Le format messages OpenAI a des subtilités** : `content` peut être string OU liste de blocks (`{type: "text", text: "..."}`). La traduction vers Anthropic doit gérer les deux.
 3. **Le rôle `system`** : OpenAI le met dans `messages`, Anthropic le passe en kwarg `system` séparé. Traduction nécessaire à la frontière du backend Anthropic.
 4. **Le rôle `tool`** : encodage différent OpenAI vs Anthropic. Pour v0.1 on peut **explicitement ne pas supporter** les tools et lever `NotImplementedError`. Mieux qu'un faux support.
-5. **Le streaming** : différent partout. Pour v0.1 on supporte sync/async non-streaming uniquement. Streaming reporté à v0.2.
+5. **Le streaming** : différent partout. Pour l'instant on supporte sync/async non-streaming uniquement. Streaming reporté à v0.3.
 6. **`claude -p` est un CLI agentique, pas une API.** Il peut décider d'appeler des tools, de lire des fichiers, de lancer du code. Le wrapper doit utiliser les flags `--no-tools` (ou équivalent actuel) et `-p` pour mode prompt direct sans interaction. Vérifier la doc actuelle de `claude --help` avant d'implémenter.
 
 ## Conformité TOS — important

@@ -11,7 +11,7 @@ from hypothesis import strategies as st
 from apicol._config import Config, load_from_env
 from apicol._errors import ConfigError
 
-VALID_BACKENDS = ("anthropic", "litellm")
+VALID_BACKENDS = ("anthropic", "openai-compatible", "litellm")
 
 random_string = st.text(
     alphabet=string.ascii_letters + string.digits + "/-_.", min_size=0, max_size=40
@@ -21,7 +21,7 @@ random_string = st.text(
 @given(garbage=random_string)
 @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_load_from_env_rejects_invalid_type(monkeypatch: pytest.MonkeyPatch, garbage: str) -> None:
-    """Toute valeur de APICOL_TYPE ∉ {anthropic, litellm} doit lever ConfigError."""
+    """Tout APICOL_TYPE hors {anthropic, openai-compatible, litellm} → ConfigError."""
     if garbage in VALID_BACKENDS:
         return
     monkeypatch.setenv("APICOL_TYPE", garbage)

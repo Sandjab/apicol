@@ -22,7 +22,7 @@ _Aucun pour le moment._
 ## Idées non encore PRD-isées
 
 - Rendre `litellm` optionnel via extras `pip install apicol[litellm]` (PRD-005 envisagé après PRD-004)
-- Support du streaming sync + async (v0.2) — interface d'events unifiée à concevoir
+- Support du streaming sync + async (v0.3) — interface d'events unifiée à concevoir
 - Support des tool calls (v0.3) — mapping OpenAI ↔ Anthropic ↔ LiteLLM
 - Fonction `embed()` pour les embeddings (v0.4)
-- Dépréciation à terme de `anthropic_client()` / `anthropic_async_client()` (fonctions globales) au profit de `Client.anthropic_native()` — décision à prendre quand v0.2 ou v0.3 sera proche
+- Dépréciation à terme de `anthropic_client()` / `anthropic_async_client()` (fonctions globales) au profit de `Client.anthropic_native()` — décision à prendre quand v0.3 sera proche

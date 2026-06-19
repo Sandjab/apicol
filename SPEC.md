@@ -284,7 +284,7 @@ Version asynchrone. Utilise `asyncio.create_subprocess_exec`. Signature identiqu
 | Prompt caching | ⚠️ (via `extra_body`) | ✅ (natif, breakpoints fins) | ⚠️ (selon endpoint) | ⚠️ (selon provider) | ❌ |
 | Citations | ❌ | ✅ | ❌ | ❌ | ❌ |
 | PDF input | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Streaming | ❌ v0.2 | ✅ (SDK natif) | ❌ v0.2 | ❌ v0.2 | ❌ |
+| Streaming | ❌ v0.3 | ✅ (SDK natif) | ❌ v0.3 | ❌ v0.3 | ❌ |
 | Tool calls | ❌ v0.3 | ✅ (SDK natif) | ❌ v0.3 | ❌ v0.3 | ❌ |
 | Batch API | ❌ | ✅ (SDK natif) | ⚠️ (selon endpoint) | ⚠️ (selon provider) | ❌ |
 

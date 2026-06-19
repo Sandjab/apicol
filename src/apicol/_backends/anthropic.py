@@ -54,11 +54,11 @@ def _openai_to_anthropic(
         NotSupportedError: Si streaming, tool calls, ou role='tool' détecté.
     """
     if stream:
-        raise NotSupportedError("stream=True n'est pas supporté en v0.1.0 (cf. roadmap v0.2).")
+        raise NotSupportedError("stream=True n'est pas encore supporté (cf. roadmap v0.3).")
     if tools:
-        raise NotSupportedError("tools n'est pas supporté en v0.1.0 (cf. roadmap v0.3).")
+        raise NotSupportedError("tools n'est pas encore supporté (cf. roadmap v0.3).")
     if any(m.get("role") == "tool" for m in messages):
-        raise NotSupportedError("Les messages role='tool' ne sont pas supportés en v0.1.0.")
+        raise NotSupportedError("Les messages role='tool' ne sont pas encore supportés.")
 
     system_parts: list[str] = []
     out_messages: list[dict[str, Any]] = []

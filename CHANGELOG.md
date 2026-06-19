@@ -7,6 +7,25 @@ et le projet adhère au [Versioning Sémantique](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Test property `test_config_parsing` : `VALID_BACKENDS` n'incluait pas
+  `openai-compatible` (backend ajouté en v0.2.0). Le test considérait à tort
+  ce backend valide comme invalide et n'échouait que lorsqu'Hypothesis tirait
+  exactement cette valeur — faux négatif intermittent en CI. Constante et
+  docstring corrigées.
+
+### Documentation
+
+- Resynchronisation de `CLAUDE.md` avec l'état réel v0.2.0 (le document
+  décrivait encore une « phase de design, aucun code ») : état d'avancement,
+  quatre backends dont `openai-compatible`, SDK `openai` dans la stack,
+  structure réelle du code et des tests, reste à faire.
+- Harmonisation de la cible roadmap du streaming v0.2 → v0.3 (devenue
+  obsolète après la sortie de v0.2.0) dans `SPEC.md`, `README.md`,
+  `docs/prd/BACKLOG.md` et les messages d'erreur du backend Anthropic.
+- `README.md` : versions d'installation v0.1.0 → v0.2.0.
+
 ## [0.2.0] - 2026-05-16
 
 ### Added

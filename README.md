@@ -13,7 +13,7 @@ Sélection du backend par variables d'environnement *ou* par objet `Client` conf
 
 ## Statut
 
-**v0.2.0 — alpha.** Implémentation complète des quatre backends (Anthropic natif, OpenAI-compatible, LiteLLM, `claude -p` dev-only), surface publique stable, ≥95 % de couverture. Streaming et tool calls reportés à v0.3/v0.4. Documentation associée :
+**v0.2.0 — alpha.** Implémentation complète des quatre backends (Anthropic natif, OpenAI-compatible, LiteLLM, `claude -p` dev-only), surface publique stable, ≥95 % de couverture. Streaming et tool calls reportés à v0.3, embeddings à v0.4. Documentation associée :
 
 - `README.md` — ce fichier
 - `CLAUDE.md` — instructions pour Claude Code travaillant sur ce repo
@@ -44,7 +44,7 @@ LiteLLM reste pour ce qu'il fait vraiment bien : les providers qui ne parlent pa
 
 ## Installation
 
-### Depuis PyPI (cible v0.1.0)
+### Depuis PyPI (cible v0.2.0)
 
 ```bash
 pip install apicol
@@ -57,7 +57,7 @@ pip install apicol
 pip install git+https://github.com/Sandjab/apicol.git
 
 # Tag spécifique
-pip install git+https://github.com/Sandjab/apicol.git@v0.1.0
+pip install git+https://github.com/Sandjab/apicol.git@v0.2.0
 
 # Branche dev
 pip install git+https://github.com/Sandjab/apicol.git@dev
@@ -78,7 +78,7 @@ pip install -e ".[dev]"  # base + outils dev (pytest, ruff, mypy)
 ```toml
 [project]
 dependencies = [
-    "apicol>=0.1.0",
+    "apicol>=0.2.0",
     # OU depuis git en phase alpha
     "apicol @ git+https://github.com/Sandjab/apicol.git@main",
 ]
@@ -87,7 +87,7 @@ dependencies = [
 **Dans `requirements.txt`** :
 
 ```
-apicol>=0.1.0
+apicol>=0.2.0
 ```
 
 **Avec uv** :
@@ -317,9 +317,9 @@ Détails complets et table de mapping `reasoning_effort` → `thinking` dans [SP
 
 - **Pas de cost tracking, virtual keys, rate limiting, dashboard.** Utiliser le proxy LiteLLM standalone pour ça.
 - **Pas de routage automatique avec fallback/loadbalance** au niveau de la lib. Pour ces patterns, l'application orchestre ses `Client` à la main.
-- **Pas de support des modalités exotiques** (audio, embeddings, fine-tuning) en v0.1. Chat completion uniquement.
-- **Pas de streaming en v0.1** (reporté à v0.2 — interface d'events unifiée à concevoir).
-- **Pas de support des tool calls en v0.1** (reporté à v0.3).
+- **Pas de support des modalités exotiques** (audio, fine-tuning) pour l'instant — chat completion uniquement. Embeddings prévus en v0.4 (backlog).
+- **Pas de streaming pour l'instant** (reporté à v0.3 — interface d'events unifiée à concevoir).
+- **Pas de support des tool calls pour l'instant** (reporté à v0.3).
 - **Pas de routage automatique vers `claude -p`.** Volontaire — voir PRD-002.
 
 ## Licence
