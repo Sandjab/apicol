@@ -16,6 +16,7 @@ X-Title) ou un gateway custom.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import openai
@@ -71,3 +72,31 @@ async def acomplete(
         raise BackendError(f"OpenAI-compatible API error: {e}") from e
     result: dict[str, Any] = response.model_dump()
     return result
+
+
+def stream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> Iterator[dict[str, Any]]:
+    """Streaming synchrone via le SDK OpenAI (pass-through de chunks OpenAI)."""
+    client = openai.OpenAI(**_build_client_kwargs(config))
+    call_kwargs = _build_call_kwargs(messages, config, **kwargs)
+    call_kwargs["stream"] = True
+    try:
+        for chunk in client.chat.completions.create(**call_kwargs):
+            yield chunk.model_dump()
+    except openai.APIError as e:
+        raise BackendError(f"OpenAI-compatible API error: {e}") from e
+
+
+async def astream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> AsyncIterator[dict[str, Any]]:
+    """Pendant async de stream()."""
+    client = openai.AsyncOpenAI(**_build_client_kwargs(config))
+    call_kwargs = _build_call_kwargs(messages, config, **kwargs)
+    call_kwargs["stream"] = True
+    try:
+        async for chunk in await client.chat.completions.create(**call_kwargs):
+            yield chunk.model_dump()
+    except openai.APIError as e:
+        raise BackendError(f"OpenAI-compatible API error: {e}") from e

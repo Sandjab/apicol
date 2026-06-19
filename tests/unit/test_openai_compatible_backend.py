@@ -153,3 +153,54 @@ class TestAcomplete:
         with pytest.raises(BackendError) as exc_info:
             await backend.acomplete([{"role": "user", "content": "Hi"}], cfg)
         assert isinstance(exc_info.value.__cause__, openai.APIError)
+
+
+class TestOpenAICompatibleStream:
+    def test_stream_yields_openai_chunks(self, mocker: pytest_mock.MockerFixture) -> None:
+        from apicol._config import Config
+
+        class FakeChunk:
+            def __init__(self, content: str) -> None:
+                self._c = content
+
+            def model_dump(self) -> dict[str, object]:
+                return {
+                    "choices": [{"index": 0, "delta": {"content": self._c}, "finish_reason": None}]
+                }
+
+        fake_client = mocker.MagicMock()
+        fake_client.chat.completions.create.return_value = iter([FakeChunk("Hel"), FakeChunk("lo")])
+        mocker.patch("openai.OpenAI", return_value=fake_client)
+
+        cfg = Config(backend="openai-compatible", api_key="k", model="gpt-5")
+        chunks = list(backend.stream([{"role": "user", "content": "hi"}], cfg))
+
+        assert [c["choices"][0]["delta"]["content"] for c in chunks] == ["Hel", "lo"]
+        assert fake_client.chat.completions.create.call_args.kwargs["stream"] is True
+
+    async def test_astream_yields_openai_chunks(self, mocker: pytest_mock.MockerFixture) -> None:
+        from apicol._config import Config
+
+        class FakeChunk:
+            def __init__(self, content: str) -> None:
+                self._c = content
+
+            def model_dump(self) -> dict[str, object]:
+                return {
+                    "choices": [{"index": 0, "delta": {"content": self._c}, "finish_reason": None}]
+                }
+
+        async def agen() -> object:
+            for c in [FakeChunk("A"), FakeChunk("B")]:
+                yield c
+
+        fake_client = mocker.MagicMock()
+        fake_client.chat.completions.create = mocker.AsyncMock(return_value=agen())
+        mocker.patch("openai.AsyncOpenAI", return_value=fake_client)
+
+        cfg = Config(backend="openai-compatible", api_key="k", model="gpt-5")
+        out = [
+            c["choices"][0]["delta"]["content"]
+            async for c in backend.astream([{"role": "user", "content": "hi"}], cfg)
+        ]
+        assert out == ["A", "B"]
