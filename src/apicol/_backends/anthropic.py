@@ -10,6 +10,7 @@ Le reste de la lib parle OpenAI partout.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import anthropic
@@ -135,6 +136,26 @@ def _anthropic_to_openai(response: Any) -> dict[str, Any]:
     }
 
 
+def _text_delta_chunk(model: str, text: str) -> dict[str, Any]:
+    return {
+        "model": model,
+        "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": None}],
+    }
+
+
+def _final_chunk(model: str, stop_reason: str | None, usage: Any) -> dict[str, Any]:
+    mapped = _STOP_REASON_MAP.get(stop_reason or "", "stop")
+    chunk: dict[str, Any] = {
+        "model": model,
+        "choices": [{"index": 0, "delta": {}, "finish_reason": mapped}],
+    }
+    if usage is not None:
+        it = getattr(usage, "input_tokens", 0)
+        ot = getattr(usage, "output_tokens", 0)
+        chunk["usage"] = {"prompt_tokens": it, "completion_tokens": ot, "total_tokens": it + ot}
+    return chunk
+
+
 def complete(messages: list[dict[str, Any]], config: Config, **kwargs: Any) -> dict[str, Any]:
     """Appel synchrone au backend Anthropic."""
     reject_chat_stream(kwargs)
@@ -161,3 +182,37 @@ async def acomplete(
     except anthropic.APIError as e:
         raise BackendError(f"Anthropic API error: {e}") from e
     return _anthropic_to_openai(response)
+
+
+def stream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> Iterator[dict[str, Any]]:
+    """Streaming synchrone Anthropic : events -> chunks format OpenAI (texte seulement)."""
+    model = resolve_model(config, kwargs)
+    payload = _openai_to_anthropic(messages, model=model, **kwargs)
+    client = anthropic.Anthropic(api_key=config.api_key, base_url=config.base_url)
+    try:
+        with client.messages.stream(**payload) as s:
+            for text in s.text_stream:
+                yield _text_delta_chunk(model, text)
+            final = s.get_final_message()
+        yield _final_chunk(model, final.stop_reason, final.usage)
+    except anthropic.APIError as e:
+        raise BackendError(f"Anthropic API error: {e}") from e
+
+
+async def astream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> AsyncIterator[dict[str, Any]]:
+    """Pendant async de stream()."""
+    model = resolve_model(config, kwargs)
+    payload = _openai_to_anthropic(messages, model=model, **kwargs)
+    client = anthropic.AsyncAnthropic(api_key=config.api_key, base_url=config.base_url)
+    try:
+        async with client.messages.stream(**payload) as s:
+            async for text in s.text_stream:
+                yield _text_delta_chunk(model, text)
+            final = await s.get_final_message()
+        yield _final_chunk(model, final.stop_reason, final.usage)
+    except anthropic.APIError as e:
+        raise BackendError(f"Anthropic API error: {e}") from e
