@@ -92,10 +92,12 @@ class TestOpenaiToAnthropic:
         with pytest.raises(NotSupportedError, match="tool"):
             backend._openai_to_anthropic(messages, model="claude-sonnet-4-6")
 
-    def test_stream_kwarg_raises_not_supported(self) -> None:
-        messages = [{"role": "user", "content": "Hi"}]
+    def test_chat_stream_kwarg_raises_not_supported(self) -> None:
+        from apicol._config import Config
+
+        cfg = Config(backend="anthropic", api_key="k", model="claude-sonnet-4-6")
         with pytest.raises(NotSupportedError, match="stream"):
-            backend._openai_to_anthropic(messages, model="claude-sonnet-4-6", stream=True)
+            backend.complete([{"role": "user", "content": "hi"}], cfg, stream=True)
 
     def test_tools_kwarg_raises_not_supported(self) -> None:
         messages = [{"role": "user", "content": "Hi"}]

@@ -11,7 +11,7 @@ from typing import Any
 
 import litellm
 
-from apicol._backends import resolve_model
+from apicol._backends import reject_chat_stream, resolve_model
 from apicol._config import Config
 from apicol._errors import BackendError
 
@@ -58,6 +58,7 @@ def _build_call_kwargs(
 
 def complete(messages: list[dict[str, Any]], config: Config, **kwargs: Any) -> dict[str, Any]:
     """Appel synchrone via LiteLLM."""
+    reject_chat_stream(kwargs)
     call_kwargs = _build_call_kwargs(messages, config, **kwargs)
     try:
         result: dict[str, Any] = litellm.completion(**call_kwargs)
@@ -72,6 +73,7 @@ async def acomplete(
     messages: list[dict[str, Any]], config: Config, **kwargs: Any
 ) -> dict[str, Any]:
     """Pendant async de complete()."""
+    reject_chat_stream(kwargs)
     call_kwargs = _build_call_kwargs(messages, config, **kwargs)
     try:
         result: dict[str, Any] = await litellm.acompletion(**call_kwargs)

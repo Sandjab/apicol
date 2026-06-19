@@ -11,7 +11,7 @@ import pytest_mock
 
 from apicol._backends import litellm as backend
 from apicol._config import Config
-from apicol._errors import BackendError
+from apicol._errors import BackendError, NotSupportedError
 
 
 class TestDetectProviderEnvVar:
@@ -72,6 +72,13 @@ class TestComplete:
         backend.complete([{"role": "user", "content": "Hi"}], cfg)
         call = mock_litellm.sync_call.call_args
         assert call.kwargs["api_base"] == "http://localhost:11434"
+
+    def test_chat_stream_kwarg_raises_not_supported(self) -> None:
+        from apicol._config import Config
+
+        cfg = Config(backend="litellm", api_key="k", model="gpt-5")
+        with pytest.raises(NotSupportedError, match="stream"):
+            backend.complete([{"role": "user", "content": "hi"}], cfg, stream=True)
 
     def test_wraps_litellm_exception(self, mocker: pytest_mock.MockerFixture) -> None:
         mocker.patch(

@@ -10,7 +10,7 @@ import pytest_mock
 
 from apicol._backends import openai_compatible as backend
 from apicol._config import Config
-from apicol._errors import BackendError
+from apicol._errors import BackendError, NotSupportedError
 
 
 class TestComplete:
@@ -100,6 +100,13 @@ class TestComplete:
         )
         with pytest.raises(BackendError, match="model requis"):
             backend.complete([{"role": "user", "content": "Hi"}], cfg)
+
+    def test_chat_stream_kwarg_raises_not_supported(self) -> None:
+        from apicol._config import Config
+
+        cfg = Config(backend="openai-compatible", api_key="k", model="gpt-5")
+        with pytest.raises(NotSupportedError, match="stream"):
+            backend.complete([{"role": "user", "content": "hi"}], cfg, stream=True)
 
     def test_wraps_openai_api_error(self, mocker: pytest_mock.MockerFixture) -> None:
         sync_client = MagicMock()

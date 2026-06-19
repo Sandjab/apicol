@@ -14,7 +14,7 @@ from typing import Any
 
 import anthropic
 
-from apicol._backends import resolve_model
+from apicol._backends import reject_chat_stream, resolve_model
 from apicol._config import Config
 from apicol._errors import BackendError, NotSupportedError
 
@@ -45,17 +45,14 @@ def _openai_to_anthropic(
     temperature: float | None = None,
     reasoning_effort: str | None = None,
     extra_body: dict[str, Any] | None = None,
-    stream: bool = False,
     tools: list[dict[str, Any]] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Traduit des kwargs OpenAI en kwargs anthropic.messages.create.
 
     Raises:
-        NotSupportedError: Si streaming, tool calls, ou role='tool' détecté.
+        NotSupportedError: Si tool calls ou role='tool' détecté.
     """
-    if stream:
-        raise NotSupportedError("stream=True n'est pas encore supporté (cf. roadmap v0.3).")
     if tools:
         raise NotSupportedError("tools n'est pas encore supporté (cf. roadmap v0.3).")
     if any(m.get("role") == "tool" for m in messages):
@@ -140,6 +137,7 @@ def _anthropic_to_openai(response: Any) -> dict[str, Any]:
 
 def complete(messages: list[dict[str, Any]], config: Config, **kwargs: Any) -> dict[str, Any]:
     """Appel synchrone au backend Anthropic."""
+    reject_chat_stream(kwargs)
     model = resolve_model(config, kwargs)
     client = anthropic.Anthropic(api_key=config.api_key, base_url=config.base_url)
     payload = _openai_to_anthropic(messages, model=model, **kwargs)
@@ -154,6 +152,7 @@ async def acomplete(
     messages: list[dict[str, Any]], config: Config, **kwargs: Any
 ) -> dict[str, Any]:
     """Pendant async de complete()."""
+    reject_chat_stream(kwargs)
     model = resolve_model(config, kwargs)
     client = anthropic.AsyncAnthropic(api_key=config.api_key, base_url=config.base_url)
     payload = _openai_to_anthropic(messages, model=model, **kwargs)
