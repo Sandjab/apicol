@@ -36,8 +36,8 @@ class BackendError(ApicolError):
 
 
 class NotSupportedError(ApicolError):
-    """Feature volontairement non supportée en v0.1.0 (tools, streaming).
+    """Feature volontairement non supportée à ce stade (ex. tool calls).
 
     Levée tôt avant l'appel SDK, avec un message clair pointant vers la
-    roadmap (v0.2 streaming, v0.3 tool calls).
+    roadmap (v0.3 tool calls).
     """

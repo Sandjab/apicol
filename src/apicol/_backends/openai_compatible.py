@@ -16,11 +16,12 @@ X-Title) ou un gateway custom.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import openai
 
-from apicol._backends import resolve_model
+from apicol._backends import reject_chat_stream, resolve_model
 from apicol._config import Config
 from apicol._errors import BackendError
 
@@ -47,6 +48,7 @@ def _build_call_kwargs(
 
 def complete(messages: list[dict[str, Any]], config: Config, **kwargs: Any) -> dict[str, Any]:
     """Appel synchrone via le SDK OpenAI."""
+    reject_chat_stream(kwargs)
     client = openai.OpenAI(**_build_client_kwargs(config))
     call_kwargs = _build_call_kwargs(messages, config, **kwargs)
     try:
@@ -61,6 +63,7 @@ async def acomplete(
     messages: list[dict[str, Any]], config: Config, **kwargs: Any
 ) -> dict[str, Any]:
     """Pendant async de complete()."""
+    reject_chat_stream(kwargs)
     client = openai.AsyncOpenAI(**_build_client_kwargs(config))
     call_kwargs = _build_call_kwargs(messages, config, **kwargs)
     try:
@@ -69,3 +72,32 @@ async def acomplete(
         raise BackendError(f"OpenAI-compatible API error: {e}") from e
     result: dict[str, Any] = response.model_dump()
     return result
+
+
+def stream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> Iterator[dict[str, Any]]:
+    """Streaming synchrone via le SDK OpenAI (pass-through de chunks OpenAI)."""
+    client = openai.OpenAI(**_build_client_kwargs(config))
+    call_kwargs = _build_call_kwargs(messages, config, **kwargs)
+    call_kwargs["stream"] = True
+    try:
+        for chunk in client.chat.completions.create(**call_kwargs):
+            yield chunk.model_dump()
+    except openai.APIError as e:
+        raise BackendError(f"OpenAI-compatible API error: {e}") from e
+
+
+async def astream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> AsyncIterator[dict[str, Any]]:
+    """Pendant async de stream()."""
+    client = openai.AsyncOpenAI(**_build_client_kwargs(config))
+    call_kwargs = _build_call_kwargs(messages, config, **kwargs)
+    call_kwargs["stream"] = True
+    try:
+        response = await client.chat.completions.create(**call_kwargs)
+        async for chunk in response:
+            yield chunk.model_dump()
+    except openai.APIError as e:
+        raise BackendError(f"OpenAI-compatible API error: {e}") from e

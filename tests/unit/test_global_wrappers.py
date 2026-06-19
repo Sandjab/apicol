@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import anthropic
 import pytest
+import pytest_mock
 
 import apicol
 from apicol._errors import BackendUnavailableError, ConfigError
@@ -109,3 +110,27 @@ class TestAnthropicClientWrapper:
         monkeypatch.setenv("APICOL_MODEL", "openai/gpt-5")
         with pytest.raises(BackendUnavailableError):
             apicol.anthropic_client()
+
+
+class TestStreamWrapper:
+    def test_global_stream_uses_implicit_client(
+        self, mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch, clean_env: None
+    ) -> None:
+        monkeypatch.setenv("APICOL_TYPE", "anthropic")
+        monkeypatch.setenv("APICOL_KEY", "k")
+        monkeypatch.setenv("APICOL_MODEL", "claude-sonnet-4-6")
+        fake = mocker.MagicMock(
+            return_value=iter(
+                [{"choices": [{"index": 0, "delta": {"content": "z"}, "finish_reason": None}]}]
+            )
+        )
+        mocker.patch(
+            "apicol._client.Client.stream",
+            lambda self, messages, **kw: fake(messages, **kw),
+        )
+        out = list(apicol.stream([{"role": "user", "content": "x"}]))
+        assert out[0]["choices"][0]["delta"]["content"] == "z"
+
+    def test_stream_astream_in_all(self) -> None:
+        assert "stream" in apicol.__all__
+        assert "astream" in apicol.__all__

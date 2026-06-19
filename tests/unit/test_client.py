@@ -164,6 +164,22 @@ class TestMultiInstanceSimultaneous:
         assert gemini.chat(prompt)["choices"][0]["message"]["content"] == "hello"
 
 
+class TestClientStream:
+    def test_client_stream_dispatches(self, mocker) -> None:  # type: ignore[no-untyped-def]
+        import apicol
+
+        fake = mocker.MagicMock(
+            return_value=iter(
+                [{"choices": [{"index": 0, "delta": {"content": "hi"}, "finish_reason": None}]}]
+            )
+        )
+        client = apicol.Client(backend="anthropic", api_key="k", model="claude-sonnet-4-6")
+        object.__setattr__(client, "_stream_callable", fake)
+        chunks = list(client.stream([{"role": "user", "content": "x"}]))
+        assert chunks[0]["choices"][0]["delta"]["content"] == "hi"
+        fake.assert_called_once()
+
+
 class TestExtraHeaders:
     def test_extra_headers_stored_in_config(self) -> None:
         client = Client(

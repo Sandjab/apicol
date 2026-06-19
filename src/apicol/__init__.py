@@ -13,6 +13,7 @@ Voir README.md pour les exemples, SPEC.md pour le contrat d'API.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
@@ -67,6 +68,20 @@ async def achat(messages: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]
     return await _get_implicit_async_client().chat(messages, **kwargs)
 
 
+def stream(messages: list[dict[str, Any]], **kwargs: Any) -> Iterator[dict[str, Any]]:
+    """Streaming synchrone via le backend configuré par env vars.
+
+    Yield des dicts au format OpenAI chunk. Voir Client.stream pour la sémantique
+    (le générateur lève à l'itération, erreurs SDK wrappées en BackendError).
+    """
+    return _get_implicit_sync_client().stream(messages, **kwargs)
+
+
+def astream(messages: list[dict[str, Any]], **kwargs: Any) -> AsyncIterator[dict[str, Any]]:
+    """Pendant async de stream(). À consommer avec `async for`."""
+    return _get_implicit_async_client().stream(messages, **kwargs)
+
+
 def anthropic_client() -> anthropic.Anthropic:
     """Échappatoire native : retourne un anthropic.Anthropic préconfiguré.
 
@@ -98,7 +113,9 @@ __all__ = [
     "achat",
     "anthropic_async_client",
     "anthropic_client",
+    "astream",
     "chat",
     "claude_cli_achat",
     "claude_cli_chat",
+    "stream",
 ]

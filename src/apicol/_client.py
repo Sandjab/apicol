@@ -7,6 +7,7 @@ caches module-level keyés par tuple des env vars APICOL_*.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,7 +15,7 @@ import anthropic
 
 from apicol._config import Config, load_from_env
 from apicol._errors import BackendUnavailableError
-from apicol._route import AsyncCallable, SyncCallable, pick_backend
+from apicol._route import AStreamCallable, AsyncCallable, StreamCallable, SyncCallable, pick_backend
 
 
 def _require_anthropic_backend(config: Config) -> None:
@@ -37,6 +38,8 @@ class Client:
     config: Config = field(init=False)
     _sync_callable: SyncCallable = field(init=False, repr=False, compare=False)
     _async_callable: AsyncCallable = field(init=False, repr=False, compare=False)
+    _stream_callable: StreamCallable = field(init=False, repr=False, compare=False)
+    _astream_callable: AStreamCallable = field(init=False, repr=False, compare=False)
 
     def __init__(
         self,
@@ -54,14 +57,24 @@ class Client:
             base_url=base_url,
             extra_headers=extra_headers,
         )
-        sync_cb, async_cb = pick_backend(cfg)
+        sync_cb, async_cb, stream_cb, astream_cb = pick_backend(cfg)
         object.__setattr__(self, "config", cfg)
         object.__setattr__(self, "_sync_callable", sync_cb)
         object.__setattr__(self, "_async_callable", async_cb)
+        object.__setattr__(self, "_stream_callable", stream_cb)
+        object.__setattr__(self, "_astream_callable", astream_cb)
 
     def chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
         """Appel synchrone — dispatche vers le backend résolu."""
         return self._sync_callable(messages, self.config, **kwargs)
+
+    def stream(self, messages: list[dict[str, Any]], **kwargs: Any) -> Iterator[dict[str, Any]]:
+        """Streaming synchrone — dispatche vers le backend résolu. Yield des chunks format OpenAI.
+
+        Le générateur lève à l'itération (pas à l'appel) ; les erreurs SDK sont
+        wrappées en BackendError.
+        """
+        return self._stream_callable(messages, self.config, **kwargs)
 
     def anthropic_native(self) -> anthropic.Anthropic:
         """Retourne un anthropic.Anthropic préconfiguré.
@@ -80,6 +93,8 @@ class AsyncClient:
     config: Config = field(init=False)
     _sync_callable: SyncCallable = field(init=False, repr=False, compare=False)
     _async_callable: AsyncCallable = field(init=False, repr=False, compare=False)
+    _stream_callable: StreamCallable = field(init=False, repr=False, compare=False)
+    _astream_callable: AStreamCallable = field(init=False, repr=False, compare=False)
 
     def __init__(
         self,
@@ -97,14 +112,22 @@ class AsyncClient:
             base_url=base_url,
             extra_headers=extra_headers,
         )
-        sync_cb, async_cb = pick_backend(cfg)
+        sync_cb, async_cb, stream_cb, astream_cb = pick_backend(cfg)
         object.__setattr__(self, "config", cfg)
         object.__setattr__(self, "_sync_callable", sync_cb)
         object.__setattr__(self, "_async_callable", async_cb)
+        object.__setattr__(self, "_stream_callable", stream_cb)
+        object.__setattr__(self, "_astream_callable", astream_cb)
 
     async def chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
         """Appel asynchrone — dispatche vers le backend résolu."""
         return await self._async_callable(messages, self.config, **kwargs)
+
+    def stream(
+        self, messages: list[dict[str, Any]], **kwargs: Any
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Pendant async de Client.stream(). À consommer avec `async for`."""
+        return self._astream_callable(messages, self.config, **kwargs)
 
     def anthropic_native(self) -> anthropic.AsyncAnthropic:
         """Retourne un anthropic.AsyncAnthropic préconfiguré.

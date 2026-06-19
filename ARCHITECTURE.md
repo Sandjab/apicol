@@ -121,11 +121,13 @@ Décisions techniques de `apicol`. Toute décision structurante référencée ic
 
 **Conséquence.** Les fonctions de traduction (OpenAI↔Anthropic) sont synchrones et partagées entre les deux chemins. Seul le `await` change.
 
-### D7 — Pas de streaming en v0.1
+### D7 — Pas de streaming en v0.1 *(supersédée par D12)*
 
 **Décision.** v0.1 supporte uniquement les réponses complètes (non-streaming).
 
 **Pourquoi.** Le streaming a des formats de chunk différents par backend (Anthropic envoie des events typés `message_start`, `content_block_delta`, etc. ; OpenAI envoie des chunks avec `delta`). Unifier ça nécessite une couche d'événements abstraits que l'on ne veut pas concevoir avant d'avoir des cas d'usage concrets. Reporté à v0.2.
+
+**Note :** décision négative désormais levée — voir **D12** (v0.3.0).
 
 ### D8 — Configuration : 4 variables, pas de fichier
 
@@ -163,6 +165,7 @@ Les erreurs SDK upstream (`anthropic.APIError`, `litellm.exceptions.*`) sont acc
 
 ### D11 — Backend `openai-compatible` distinct de LiteLLM
 
+
 **Décision.** Trois backends coexistent : `anthropic`, `openai-compatible`, `litellm`. Le backend `openai-compatible` utilise le SDK officiel `openai` pour parler à tout endpoint qui expose `/v1/chat/completions` au format OpenAI (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek, Together, Fireworks, Anyscale, et tout proxy compatible — y compris LiteLLM en mode proxy). LiteLLM reste pour les providers qui **ne parlent pas** OpenAI nativement : Gemini natif (Google AI Studio / Vertex AI), Bedrock, Azure OpenAI, Cohere, Replicate, HuggingFace Inference.
 
 **Pourquoi.** Pour 6/7 des providers ciblés à l'origine par le README (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter), LiteLLM est techniquement surdimensionné : ces endpoints sont déjà OpenAI-compatibles, et `openai.OpenAI(base_url=...)` suffit. Charger LiteLLM (~200 transitives, surface qui bouge) pour ces cas-là, c'est payer sans contrepartie. LiteLLM gagne sa place uniquement pour les providers exotiques où il fait du vrai travail de traduction de format et d'auth. Aligner la dépendance sur la valeur ajoutée réelle, c'est l'application à LiteLLM de la règle qu'on lui applique déjà (D2 — « ne pas réinventer ce qui existe »).
@@ -176,6 +179,33 @@ Les erreurs SDK upstream (`anthropic.APIError`, `litellm.exceptions.*`) sont acc
 - **LiteLLM reste dépendance directe en v0.2** ; le rendre optionnel via extras (`pip install apicol[litellm]`) est reporté à un éventuel PRD-005.
 
 **Référence.** `docs/prd/PRD-004-backend-openai-compatible.md`
+
+### D12 — Streaming via méthodes dédiées (amende D7)
+
+**Décision.** Le streaming est exposé via des méthodes/fonctions dédiées `stream()`/`astream()` — **pas** via un paramètre `stream=True` sur `chat()`. Les chunks yielded sont des dicts au format OpenAI (best-effort). Implémenté en v0.3.0 ; amende D7 (« pas de streaming en v0.1 »).
+
+**Surface publique ajoutée** :
+
+| Symbole | Type de retour |
+|---------|---------------|
+| `Client.stream(messages, **kwargs)` | `Iterator[dict[str, Any]]` |
+| `AsyncClient.stream(messages, **kwargs)` | `AsyncIterator[dict[str, Any]]` |
+| `stream(...)` (globale) | `Iterator[dict[str, Any]]` |
+| `astream(...)` (globale) | `AsyncIterator[dict[str, Any]]` |
+
+**Pourquoi des méthodes dédiées et non `stream=True` sur `chat()`.** Un retour polymorphe `dict | Iterator` est intenable en `mypy --strict` et brouille le contrat de `chat()`. La séparation lexicale préserve le type de retour de `chat()` et maintient le miroir sync/async lisible — cohérent avec la norme du projet.
+
+**Pourquoi D7 est levée maintenant.** D7 reportait parce que les formats de chunks diffèrent par backend. Or c'est exactement le problème résolu par D2 (lingua franca OpenAI) pour les réponses complètes. Deux des trois backends routables (`openai-compatible`, `litellm`) émettent déjà des chunks format OpenAI — pass-through quasi-immédiat. Seul Anthropic exige un codec events→chunks, strictement localisé dans `_backends/anthropic.py` (même frontière que la traduction de réponses complètes).
+
+**Codec Anthropic** : localisé dans `_backends/anthropic.py`. Les events `content_block_delta` (type `text_delta`) sont mappés en chunks `delta.content` ; l'event `message_delta` porte le `finish_reason` et l'`usage` (best-effort). Events de structure (`message_start`, `content_block_start/stop`, `message_stop`, `thinking_delta`) ignorés.
+
+**`openai-compatible` et `litellm`** : pass-through. Le SDK retourne déjà des chunks format OpenAI ; `stream()` appelle le SDK avec `stream=True` et yield chaque chunk en dict.
+
+**Garde `stream=True` sur `chat()`** : helper `reject_chat_stream(kwargs)` dans `_backends/__init__.py`, appelé en tête des fonctions `complete`/`acomplete` des 3 backends. Lève `NotSupportedError` pointant vers `stream()`/`astream()`. Centralisé et homogène sur les 3 backends (corrige une incohérence latente où openai/litellm auraient transmis `stream=True` au SDK et fait échouer la conversion).
+
+**`claude_cli` non couvert** : dev-only, subprocess, format JSON-lines propriétaire. Hors périmètre — éventuel PRD ultérieur si besoin émerge.
+
+**Référence.** `docs/prd/PRD-005-streaming.md`
 
 ## Flux de dispatch
 
@@ -240,10 +270,10 @@ chat(messages, **kwargs)
 | `tests/test_claude_cli_backend.py` | unitaire (mock subprocess) | Format de l'invocation, parsing de la sortie |
 | `tests/integration/` | integration (réseau) | Smoke tests sur vraies APIs, marqués `@pytest.mark.integration` |
 
-## Extensions futures (hors v0.1)
+## Extensions futures
 
-- v0.2 : streaming sync + async (interface d'events unifiée à concevoir)
-- v0.3 : support des tool calls (mapping OpenAI ↔ Anthropic ↔ LiteLLM)
+- v0.3 ✅ : streaming sync + async — livré (`stream`/`astream`, D12, PRD-005)
+- v0.3 (reste) : support des tool calls (mapping OpenAI ↔ Anthropic ↔ LiteLLM)
 - v0.4 : éventuel support des embeddings via une fonction `embed()` dédiée
 - Pas prévu : cost tracking, fallback automatique, virtual keys (utiliser le proxy LiteLLM pour ça)
 

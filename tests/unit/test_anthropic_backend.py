@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from unittest.mock import MagicMock
 
 import anthropic
@@ -92,10 +93,12 @@ class TestOpenaiToAnthropic:
         with pytest.raises(NotSupportedError, match="tool"):
             backend._openai_to_anthropic(messages, model="claude-sonnet-4-6")
 
-    def test_stream_kwarg_raises_not_supported(self) -> None:
-        messages = [{"role": "user", "content": "Hi"}]
+    def test_chat_stream_kwarg_raises_not_supported(self) -> None:
+        from apicol._config import Config
+
+        cfg = Config(backend="anthropic", api_key="k", model="claude-sonnet-4-6")
         with pytest.raises(NotSupportedError, match="stream"):
-            backend._openai_to_anthropic(messages, model="claude-sonnet-4-6", stream=True)
+            backend.complete([{"role": "user", "content": "hi"}], cfg, stream=True)
 
     def test_tools_kwarg_raises_not_supported(self) -> None:
         messages = [{"role": "user", "content": "Hi"}]
@@ -241,3 +244,61 @@ class TestAcomplete:
         with pytest.raises(BackendError) as exc_info:
             await backend.acomplete([{"role": "user", "content": "Hi"}], basic_config)
         assert isinstance(exc_info.value.__cause__, anthropic.APIError)
+
+
+class TestAnthropicStream:
+    def _fake_stream_cm(
+        self, mocker: pytest_mock.MockerFixture, texts: list[str], stop_reason: str = "end_turn"
+    ) -> MagicMock:
+        """Mocks the context manager returned by client.messages.stream(...)."""
+        cm = mocker.MagicMock()
+        cm.__enter__.return_value = cm
+        cm.__exit__.return_value = False
+        cm.text_stream = iter(texts)
+        final = mocker.MagicMock()
+        final.stop_reason = stop_reason
+        final.usage = mocker.MagicMock(input_tokens=3, output_tokens=5)
+        cm.get_final_message.return_value = final
+        return cm
+
+    def test_stream_maps_text_then_final_chunk(self, mocker: pytest_mock.MockerFixture) -> None:
+        from apicol._config import Config
+
+        fake_client = mocker.MagicMock()
+        fake_client.messages.stream.return_value = self._fake_stream_cm(mocker, ["Hel", "lo"])
+        mocker.patch("anthropic.Anthropic", return_value=fake_client)
+
+        cfg = Config(backend="anthropic", api_key="k", model="claude-sonnet-4-6")
+        chunks = list(backend.stream([{"role": "user", "content": "hi"}], cfg))
+
+        text = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
+        assert text == "Hello"
+        assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
+        assert chunks[-1]["usage"]["total_tokens"] == 8
+
+    async def test_astream_maps_text_then_final_chunk(
+        self, mocker: pytest_mock.MockerFixture
+    ) -> None:
+        from apicol._config import Config
+
+        async def atext() -> AsyncIterator[str]:
+            for t in ["A", "B"]:
+                yield t
+
+        cm = mocker.MagicMock()
+        cm.__aenter__ = mocker.AsyncMock(return_value=cm)
+        cm.__aexit__ = mocker.AsyncMock(return_value=False)
+        cm.text_stream = atext()
+        final = mocker.MagicMock(
+            stop_reason="end_turn", usage=mocker.MagicMock(input_tokens=1, output_tokens=1)
+        )
+        cm.get_final_message = mocker.AsyncMock(return_value=final)
+
+        fake_client = mocker.MagicMock()
+        fake_client.messages.stream.return_value = cm
+        mocker.patch("anthropic.AsyncAnthropic", return_value=fake_client)
+
+        cfg = Config(backend="anthropic", api_key="k", model="claude-sonnet-4-6")
+        out = [c async for c in backend.astream([{"role": "user", "content": "hi"}], cfg)]
+        assert "".join(c["choices"][0]["delta"].get("content", "") for c in out) == "AB"
+        assert out[-1]["choices"][0]["finish_reason"] == "stop"

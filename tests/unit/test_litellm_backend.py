@@ -11,7 +11,7 @@ import pytest_mock
 
 from apicol._backends import litellm as backend
 from apicol._config import Config
-from apicol._errors import BackendError
+from apicol._errors import BackendError, NotSupportedError
 
 
 class TestDetectProviderEnvVar:
@@ -73,6 +73,13 @@ class TestComplete:
         call = mock_litellm.sync_call.call_args
         assert call.kwargs["api_base"] == "http://localhost:11434"
 
+    def test_chat_stream_kwarg_raises_not_supported(self) -> None:
+        from apicol._config import Config
+
+        cfg = Config(backend="litellm", api_key="k", model="gpt-5")
+        with pytest.raises(NotSupportedError, match="stream"):
+            backend.complete([{"role": "user", "content": "hi"}], cfg, stream=True)
+
     def test_wraps_litellm_exception(self, mocker: pytest_mock.MockerFixture) -> None:
         mocker.patch(
             "litellm.completion",
@@ -128,6 +135,49 @@ class TestComplete:
         with pytest.raises(BackendError) as exc_info:
             backend.complete([{"role": "user", "content": "Hi"}], cfg)
         assert isinstance(exc_info.value.__cause__, litellm.exceptions.BadRequestError)
+
+
+class TestLiteLLMStream:
+    def test_stream_yields_openai_chunks(self, mocker) -> None:
+        from apicol._config import Config
+
+        class FakeChunk:
+            def __init__(self, content):
+                self._c = content
+
+            def model_dump(self):
+                return {
+                    "choices": [{"index": 0, "delta": {"content": self._c}, "finish_reason": None}]
+                }
+
+        mocker.patch("litellm.completion", return_value=iter([FakeChunk("X"), FakeChunk("Y")]))
+        cfg = Config(backend="litellm", api_key="k", model="gpt-5")
+        chunks = list(backend.stream([{"role": "user", "content": "hi"}], cfg))
+        assert [c["choices"][0]["delta"]["content"] for c in chunks] == ["X", "Y"]
+
+    async def test_astream_yields_openai_chunks(self, mocker) -> None:
+        from apicol._config import Config
+
+        class FakeChunk:
+            def __init__(self, content):
+                self._c = content
+
+            def model_dump(self):
+                return {
+                    "choices": [{"index": 0, "delta": {"content": self._c}, "finish_reason": None}]
+                }
+
+        async def agen():
+            for c in [FakeChunk("P"), FakeChunk("Q")]:
+                yield c
+
+        mocker.patch("litellm.acompletion", mocker.AsyncMock(return_value=agen()))
+        cfg = Config(backend="litellm", api_key="k", model="gpt-5")
+        out = [
+            c["choices"][0]["delta"]["content"]
+            async for c in backend.astream([{"role": "user", "content": "hi"}], cfg)
+        ]
+        assert out == ["P", "Q"]
 
 
 class TestAcomplete:
