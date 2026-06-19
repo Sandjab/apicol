@@ -20,6 +20,21 @@ from apicol._errors import BackendError, BackendUnavailableError
 
 DEFAULT_TIMEOUT = 120
 
+_CLAUDE_NOT_FOUND_MSG = (
+    "Le binaire 'claude' est introuvable dans PATH. "
+    "Installer Claude Code : https://docs.anthropic.com/en/docs/claude-code"
+)
+
+
+def _ensure_claude_available() -> None:
+    """Vérifie la présence du binaire `claude` dans PATH.
+
+    Raises:
+        BackendUnavailableError: Si `claude` introuvable.
+    """
+    if not shutil.which("claude"):
+        raise BackendUnavailableError(_CLAUDE_NOT_FOUND_MSG)
+
 
 def _flatten_messages_to_transcript(messages: list[dict[str, Any]]) -> str:
     """Aplatit des messages OpenAI en un prompt unique transcript-style.
@@ -114,11 +129,7 @@ def complete(
         BackendUnavailableError: Si `claude` introuvable dans PATH.
         BackendError: Sur exit non-zéro, timeout, JSON output illisible.
     """
-    if not shutil.which("claude"):
-        raise BackendUnavailableError(
-            "Le binaire 'claude' est introuvable dans PATH. "
-            "Installer Claude Code : https://docs.anthropic.com/en/docs/claude-code"
-        )
+    _ensure_claude_available()
 
     prompt = _flatten_messages_to_transcript(messages)
     cmd = _build_command(prompt, model)
@@ -141,11 +152,7 @@ async def acomplete(
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
     """Pendant async de complete()."""
-    if not shutil.which("claude"):
-        raise BackendUnavailableError(
-            "Le binaire 'claude' est introuvable dans PATH. "
-            "Installer Claude Code : https://docs.anthropic.com/en/docs/claude-code"
-        )
+    _ensure_claude_available()
 
     prompt = _flatten_messages_to_transcript(messages)
     cmd = _build_command(prompt, model)

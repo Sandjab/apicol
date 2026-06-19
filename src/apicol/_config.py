@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 from apicol._errors import ConfigError
@@ -41,7 +41,7 @@ class Config:
     api_key: str | None
     model: str | None
     base_url: str | None = None
-    extra_headers: dict[str, str] | None = field(default=None)
+    extra_headers: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         self._validate()
@@ -59,14 +59,13 @@ class Config:
             )
         if self.backend == "anthropic" and not self.api_key:
             raise ConfigError("backend='anthropic' requiert api_key (ou APICOL_KEY en env).")
-        if self.backend == "litellm" and not self.api_key and not self.base_url:
+        if (
+            self.backend in ("litellm", "openai-compatible")
+            and not self.api_key
+            and not self.base_url
+        ):
             raise ConfigError(
-                "backend='litellm' requiert api_key sauf si base_url est défini "
-                "(ex. Ollama/LM Studio local)."
-            )
-        if self.backend == "openai-compatible" and not self.api_key and not self.base_url:
-            raise ConfigError(
-                "backend='openai-compatible' requiert api_key sauf si base_url est défini "
+                f"backend='{self.backend}' requiert api_key sauf si base_url est défini "
                 "(ex. Ollama/vLLM/LM Studio local)."
             )
 

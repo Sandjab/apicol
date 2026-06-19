@@ -14,6 +14,7 @@ from typing import Any
 
 import anthropic
 
+from apicol._backends import resolve_model
 from apicol._config import Config
 from apicol._errors import BackendError, NotSupportedError
 
@@ -139,9 +140,7 @@ def _anthropic_to_openai(response: Any) -> dict[str, Any]:
 
 def complete(messages: list[dict[str, Any]], config: Config, **kwargs: Any) -> dict[str, Any]:
     """Appel synchrone au backend Anthropic."""
-    model = kwargs.pop("model", None) or config.model
-    if not model:
-        raise BackendError("model requis : ni dans Config ni dans kwargs.")
+    model = resolve_model(config, kwargs)
     client = anthropic.Anthropic(api_key=config.api_key, base_url=config.base_url)
     payload = _openai_to_anthropic(messages, model=model, **kwargs)
     try:
@@ -155,9 +154,7 @@ async def acomplete(
     messages: list[dict[str, Any]], config: Config, **kwargs: Any
 ) -> dict[str, Any]:
     """Pendant async de complete()."""
-    model = kwargs.pop("model", None) or config.model
-    if not model:
-        raise BackendError("model requis : ni dans Config ni dans kwargs.")
+    model = resolve_model(config, kwargs)
     client = anthropic.AsyncAnthropic(api_key=config.api_key, base_url=config.base_url)
     payload = _openai_to_anthropic(messages, model=model, **kwargs)
     try:

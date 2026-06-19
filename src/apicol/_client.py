@@ -17,6 +17,19 @@ from apicol._errors import BackendUnavailableError
 from apicol._route import AsyncCallable, SyncCallable, pick_backend
 
 
+def _require_anthropic_backend(config: Config) -> None:
+    """Vérifie que le backend autorise l'échappatoire native Anthropic.
+
+    Raises:
+        BackendUnavailableError: Si backend != 'anthropic'.
+    """
+    if config.backend != "anthropic":
+        raise BackendUnavailableError(
+            f"anthropic_native() disponible uniquement sur backend='anthropic' "
+            f"(actuel : {config.backend!r})."
+        )
+
+
 @dataclass(frozen=True)
 class Client:
     """Client synchrone immutable encapsulant une Config + un backend résolu."""
@@ -56,11 +69,7 @@ class Client:
         Raises:
             BackendUnavailableError: Si backend != 'anthropic'.
         """
-        if self.config.backend != "anthropic":
-            raise BackendUnavailableError(
-                f"anthropic_native() disponible uniquement sur backend='anthropic' "
-                f"(actuel : {self.config.backend!r})."
-            )
+        _require_anthropic_backend(self.config)
         return anthropic.Anthropic(api_key=self.config.api_key, base_url=self.config.base_url)
 
 
@@ -103,11 +112,7 @@ class AsyncClient:
         Raises:
             BackendUnavailableError: Si backend != 'anthropic'.
         """
-        if self.config.backend != "anthropic":
-            raise BackendUnavailableError(
-                f"anthropic_native() disponible uniquement sur backend='anthropic' "
-                f"(actuel : {self.config.backend!r})."
-            )
+        _require_anthropic_backend(self.config)
         return anthropic.AsyncAnthropic(api_key=self.config.api_key, base_url=self.config.base_url)
 
 

@@ -20,6 +20,7 @@ from typing import Any
 
 import openai
 
+from apicol._backends import resolve_model
 from apicol._config import Config
 from apicol._errors import BackendError
 
@@ -38,10 +39,7 @@ def _build_call_kwargs(
     messages: list[dict[str, Any]], config: Config, **kwargs: Any
 ) -> dict[str, Any]:
     """Prépare les kwargs de chat.completions.create."""
-    model = kwargs.pop("model", None) or config.model
-    if not model:
-        raise BackendError("model requis : ni dans Config ni dans kwargs.")
-
+    model = resolve_model(config, kwargs)
     call_kwargs: dict[str, Any] = {"model": model, "messages": messages}
     call_kwargs.update(kwargs)
     return call_kwargs
