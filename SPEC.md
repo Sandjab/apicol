@@ -2,7 +2,7 @@
 
 Contrat d'API publique de `apicol`. Ce document décrit le **quoi** (signatures, comportements observables). Le **comment** est dans `ARCHITECTURE.md`.
 
-Versionning : ce document décrit la **v0.1**. Toute modification d'API publique nécessite un PRD et une bump de version mineure.
+Versionning : ce document décrit la **v0.3**. Toute modification d'API publique nécessite un PRD et une bump de version mineure.
 
 ## Variables d'environnement
 
@@ -160,7 +160,7 @@ Appel synchrone.
 **Erreurs possibles** :
 
 - `ConfigError` — env vars manquantes ou invalides
-- `NotSupportedError` — feature demandée non supportée en v0.1 (ex. tools)
+- `NotSupportedError` — feature demandée non supportée à ce stade (ex. tools)
 - `BackendError` — erreur remontée du SDK upstream (vérifier `.__cause__` pour le détail)
 
 **Table de mapping `reasoning_effort` (backend Anthropic)** :
