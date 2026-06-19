@@ -6,11 +6,11 @@ Instructions pour Claude Code travaillant sur ce repo.
 
 ## État actuel du repo
 
-**v0.2.0 (alpha) — implémenté et testé.** La surface publique v0.1 est complète et stable ; le code vit dans `src/apicol/`. Les quatre backends sont opérationnels (Anthropic natif, `openai-compatible`, LiteLLM, `claude -p` dev-only), sync **et** async en miroir strict. Suite verte : **161 tests passants, 5 skippés** (intégration live), couverture ≥ 95 %.
+**v0.3.0 (alpha) — implémenté et testé.** La surface publique v0.1 est complète et stable ; le code vit dans `src/apicol/`. Les quatre backends sont opérationnels (Anthropic natif, `openai-compatible`, LiteLLM, `claude -p` dev-only), sync **et** async en miroir strict. Le streaming (`stream`/`astream`) est livré pour les 3 backends routables (PRD-005). Suite verte : **176 tests passants, 5 skippés** (intégration live), couverture ≥ 95 %.
 
-- Documentaire : `README.md` (vue produit), `ARCHITECTURE.md` (décisions D1–D11), `SPEC.md` (contrat d'API), `CHANGELOG.md`
-- `docs/prd/` : `BACKLOG.md` + PRD-001 (deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend `Client`), PRD-004 (`openai-compatible`) — tous marqués *Implémenté*
-- Reste à faire (backlog non PRD-isé) : `litellm` optionnel (PRD-005 envisagé), streaming (v0.3), tool calls (v0.3), `embed()` (v0.4)
+- Documentaire : `README.md` (vue produit), `ARCHITECTURE.md` (décisions D1–D12), `SPEC.md` (contrat d'API), `CHANGELOG.md`
+- `docs/prd/` : `BACKLOG.md` + PRD-001 (deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend `Client`), PRD-004 (`openai-compatible`), PRD-005 (streaming) — tous marqués *Implémenté*
+- Reste à faire (backlog non PRD-isé) : `litellm` optionnel (PRD-006 envisagé), tool calls (v0.3 — prochain cycle), `embed()` (v0.4)
 
 Avant tout travail non-trivial, vérifier que la décision est déjà tranchée dans un PRD. Si elle ne l'est pas, **rédiger un PRD avant de coder** plutôt que d'improviser.
 
@@ -20,7 +20,7 @@ Ordre de précédence en cas de divergence entre documents :
 
 1. **PRDs (`docs/prd/PRD-NNN-*.md`)** — décisions structurantes votées, irrévocables sans nouveau PRD
 2. **`SPEC.md`** — contrat d'API publique (signatures, comportements observables)
-3. **`ARCHITECTURE.md`** — comment on implémente la SPEC (décisions D1–D10)
+3. **`ARCHITECTURE.md`** — comment on implémente la SPEC (décisions D1–D12)
 4. **`README.md`** — vue produit pour utilisateur final
 5. Ce `CLAUDE.md` — règles opérationnelles pour l'agent
 
@@ -140,7 +140,7 @@ make check                           # à créer : format + lint + types + tests
 2. **Le format messages OpenAI a des subtilités** : `content` peut être string OU liste de blocks (`{type: "text", text: "..."}`). La traduction vers Anthropic doit gérer les deux.
 3. **Le rôle `system`** : OpenAI le met dans `messages`, Anthropic le passe en kwarg `system` séparé. Traduction nécessaire à la frontière du backend Anthropic.
 4. **Le rôle `tool`** : encodage différent OpenAI vs Anthropic. Pour v0.1 on peut **explicitement ne pas supporter** les tools et lever `NotImplementedError`. Mieux qu'un faux support.
-5. **Le streaming** : différent partout. Pour l'instant on supporte sync/async non-streaming uniquement. Streaming reporté à v0.3.
+5. **Le streaming** : livré en v0.3.0 via `stream()`/`astream()` (méthodes `Client`/`AsyncClient` + globales). `chat(..., stream=True)` lève `NotSupportedError` sur les 3 backends — utiliser `stream()`/`astream()`. Codec events→chunks localisé dans `_backends/anthropic.py` ; pass-through pour `openai-compatible` et `litellm`.
 6. **`claude -p` est un CLI agentique, pas une API.** Il peut décider d'appeler des tools, de lire des fichiers, de lancer du code. Le wrapper doit utiliser les flags `--no-tools` (ou équivalent actuel) et `-p` pour mode prompt direct sans interaction. Vérifier la doc actuelle de `claude --help` avant d'implémenter.
 
 ## Conformité TOS — important

@@ -4,7 +4,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/Sandjab/apicol)](https://github.com/Sandjab/apicol/commits/main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-blue.svg)](https://www.python.org)
-[![Version](https://img.shields.io/badge/Version-v0.2.0-green.svg)](https://github.com/Sandjab/apicol/releases/tag/v0.2.0)
+[![Version](https://img.shields.io/badge/Version-v0.3.0-green.svg)](https://github.com/Sandjab/apicol/releases/tag/v0.3.0)
 [![Visitors](https://komarev.com/ghpvc/?username=sandjab-apicol&label=Visitors&color=0e75b6&style=flat)](https://github.com/Sandjab/apicol)
 
 Couche d'abstraction Python pour appeler un LLM via plusieurs backends interchangeables. Une interface unifiée au format OpenAI pour parler à : **API Anthropic native** (avec caching, thinking, citations), **OpenAI-compatible** via le SDK officiel `openai` (OpenAI, Mistral, Ollama, vLLM, LM Studio, OpenRouter, Groq, DeepSeek, Together, Fireworks et tout endpoint qui expose `/v1/chat/completions`), **LiteLLM** pour les providers non-OpenAI-compatibles natifs (Gemini natif, Bedrock, Vertex AI, Azure OpenAI, Cohere), et **Claude Code CLI** (`claude -p`, usage dev local uniquement).
@@ -13,7 +13,7 @@ Sélection du backend par variables d'environnement *ou* par objet `Client` conf
 
 ## Statut
 
-**v0.2.0 — alpha.** Implémentation complète des quatre backends (Anthropic natif, OpenAI-compatible, LiteLLM, `claude -p` dev-only), surface publique stable, ≥95 % de couverture. Streaming et tool calls reportés à v0.3, embeddings à v0.4. Documentation associée :
+**v0.3.0 — alpha.** Implémentation complète des quatre backends (Anthropic natif, OpenAI-compatible, LiteLLM, `claude -p` dev-only), surface publique stable, ≥95 % de couverture. Streaming livré en v0.3.0 (`stream()`/`astream()` sur les 3 backends routables). Tool calls reportés à v0.3 (prochain cycle), embeddings à v0.4. Documentation associée :
 
 - `README.md` — ce fichier
 - `CLAUDE.md` — instructions pour Claude Code travaillant sur ce repo
@@ -21,7 +21,7 @@ Sélection du backend par variables d'environnement *ou* par objet `Client` conf
 - `SPEC.md` — contrat d'API publique
 - `CHANGELOG.md` — historique des versions
 - `pyproject.toml` — métadonnées du package
-- `docs/prd/` — PRD-001 (architecture deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend simultané), PRD-004 (backend `openai-compatible`)
+- `docs/prd/` — PRD-001 (architecture deux niveaux), PRD-002 (séparation `claude -p`), PRD-003 (multi-backend simultané), PRD-004 (backend `openai-compatible`), PRD-005 (streaming)
 
 ## Pourquoi cette lib
 
@@ -174,6 +174,40 @@ async def main():
 asyncio.run(main())
 ```
 
+### Streaming — `stream` et `astream`
+
+Pour recevoir la réponse au fil de la génération (au lieu d'attendre la réponse complète) :
+
+```python
+import apicol
+
+# Streaming synchrone via Client
+claude = apicol.Client(backend="anthropic", api_key="sk-ant-...", model="claude-opus-4-7")
+for chunk in claude.stream(messages=[{"role": "user", "content": "Raconte une histoire courte"}]):
+    delta = chunk["choices"][0]["delta"].get("content")
+    if delta:
+        print(delta, end="", flush=True)
+```
+
+Le dernier chunk porte un `finish_reason` non nul (ex. `"stop"`) et, si le backend le fournit, un champ `usage`. Tous les chunks intermédiaires ont `finish_reason: None`.
+
+```python
+# Streaming async via fonctions globales (env vars)
+import asyncio, apicol
+
+async def main():
+    async for chunk in apicol.astream(
+        messages=[{"role": "user", "content": "Bonjour"}]
+    ):
+        delta = chunk["choices"][0]["delta"].get("content")
+        if delta:
+            print(delta, end="", flush=True)
+
+asyncio.run(main())
+```
+
+Le streaming est disponible sur les 3 backends routables (`anthropic`, `openai-compatible`, `litellm`). `chat(..., stream=True)` lève `NotSupportedError` — utiliser `stream()`/`astream()` à la place.
+
 ### Mode multi-backend — objet `Client`
 
 Pour avoir plusieurs configurations actives simultanément dans le même process (bench, fallback applicatif, comparaison) :
@@ -317,9 +351,8 @@ Détails complets et table de mapping `reasoning_effort` → `thinking` dans [SP
 
 - **Pas de cost tracking, virtual keys, rate limiting, dashboard.** Utiliser le proxy LiteLLM standalone pour ça.
 - **Pas de routage automatique avec fallback/loadbalance** au niveau de la lib. Pour ces patterns, l'application orchestre ses `Client` à la main.
-- **Pas de support des modalités exotiques** (audio, fine-tuning) pour l'instant — chat completion uniquement. Embeddings prévus en v0.4 (backlog).
-- **Pas de streaming pour l'instant** (reporté à v0.3 — interface d'events unifiée à concevoir).
-- **Pas de support des tool calls pour l'instant** (reporté à v0.3).
+- **Pas de support des modalités exotiques** (audio, fine-tuning) pour l'instant — chat completion et streaming uniquement. Embeddings prévus en v0.4 (backlog).
+- **Pas de support des tool calls pour l'instant** (roadmap v0.3 — prochain cycle).
 - **Pas de routage automatique vers `claude -p`.** Volontaire — voir PRD-002.
 
 ## Licence

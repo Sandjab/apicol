@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apicol"
-version = "0.2.0"
+version = "0.3.0"
 description = "Couche d'abstraction multi-backend pour appels LLM : Anthropic natif, OpenAI-compatible (Ollama/vLLM/OpenRouter/...), LiteLLM (Gemini/Bedrock/Vertex/Azure), claude -p dev-only."
 readme = "README.md"
 requires-python = ">=3.10"

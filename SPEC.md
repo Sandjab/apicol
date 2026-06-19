@@ -178,6 +178,39 @@ Note : pour Opus 4.7, `budget_tokens` est rejeté ; seul le mode `adaptive` est 
 
 Identique à `chat()` mais asynchrone. Signature, paramètres et retour identiques. Utilise `anthropic.AsyncAnthropic` ou `litellm.acompletion` selon le backend.
 
+### `stream(messages, **kwargs) -> Iterator[dict]` / `Client.stream(messages, **kwargs) -> Iterator[dict]`
+
+Streaming synchrone. Accepte les mêmes `**kwargs` que `chat()`. Disponible comme méthode sur `Client` et comme fonction globale `apicol.stream(...)` (utilise le client implicite depuis les variables d'environnement).
+
+**Backends couverts** : `anthropic`, `openai-compatible`, `litellm`. `claude_cli` est hors périmètre (dev-only).
+
+**Retour** : générateur qui yield des dicts au format OpenAI chunk :
+
+```python
+# Chunk intermédiaire
+{"model": "...", "choices": [{"index": 0, "delta": {"content": "..."}, "finish_reason": None}]}
+
+# Dernier chunk (finish_reason non nul, usage best-effort)
+{"model": "...", "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}], "usage": {...}}
+```
+
+Le texte incrémental est dans `choices[0]["delta"].get("content")`. L'`usage` est fourni sur le dernier chunk **si** le backend le rapporte (best-effort, pas de normalisation inter-backend garantie).
+
+**Sémantique du générateur** : les erreurs sont levées **à l'itération**, pas à l'appel. Toute erreur SDK est wrappée en `BackendError` (cause préservée dans `__cause__`).
+
+**`chat(..., stream=True)` est interdit.** Sur les trois backends routables, passer `stream=True` à `chat()` lève `NotSupportedError` pointant vers `stream()`/`astream()`.
+
+### `astream(messages, **kwargs) -> AsyncIterator[dict]` / `AsyncClient.stream(messages, **kwargs) -> AsyncIterator[dict]`
+
+Pendant asynchrone de `stream()`. `AsyncClient.stream()` retourne un `AsyncIterator[dict]` consommé avec `async for`. La fonction globale `apicol.astream(...)` est le wrapper de commodité correspondant. Même contrat de chunks, même sémantique d'erreurs.
+
+```python
+async for chunk in client.stream(messages=[...]):
+    delta = chunk["choices"][0]["delta"].get("content")
+    if delta:
+        print(delta, end="", flush=True)
+```
+
 ## Niveau 2 — Échappatoire native
 
 L'échappatoire native est désormais accessible **principalement** via la méthode `client.anthropic_native()` du Client. Les fonctions globales `anthropic_client()` et `anthropic_async_client()` sont conservées comme **alias rétrocompatibles** (utilisent un Client implicite construit depuis les env vars).
@@ -284,11 +317,11 @@ Version asynchrone. Utilise `asyncio.create_subprocess_exec`. Signature identiqu
 | Prompt caching | ⚠️ (via `extra_body`) | ✅ (natif, breakpoints fins) | ⚠️ (selon endpoint) | ⚠️ (selon provider) | ❌ |
 | Citations | ❌ | ✅ | ❌ | ❌ | ❌ |
 | PDF input | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Streaming | ❌ v0.3 | ✅ (SDK natif) | ❌ v0.3 | ❌ v0.3 | ❌ |
+| Streaming | ✅ (stream/astream) | ✅ (SDK natif) | ✅ (stream/astream) | ✅ (stream/astream) | ❌ |
 | Tool calls | ❌ v0.3 | ✅ (SDK natif) | ❌ v0.3 | ❌ v0.3 | ❌ |
 | Batch API | ❌ | ✅ (SDK natif) | ⚠️ (selon endpoint) | ⚠️ (selon provider) | ❌ |
 
-Légende : ✅ supporté · ⚠️ supporté avec limites/conventions · ❌ non supporté en v0.2
+Légende : ✅ supporté · ⚠️ supporté avec limites/conventions · ❌ non supporté
 
 ## Exemples de scénarios
 

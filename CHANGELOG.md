@@ -7,6 +7,21 @@ et le projet adhère au [Versioning Sémantique](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-19
+
+### Added
+
+- Streaming (PRD-005) : `stream()`/`astream()` (méthodes `Client`/`AsyncClient` +
+  fonctions globales) yieldant des chunks au format OpenAI, pour les backends
+  `anthropic`, `openai-compatible` et `litellm`. Codec events→chunks pour Anthropic ;
+  pass-through pour les deux autres. `claude_cli` non couvert (dev-only).
+
+### Changed
+
+- Garde `stream=True` sur `chat()` centralisé et étendu aux 3 backends
+  (`reject_chat_stream`) ; lève `NotSupportedError` pointant vers `stream()`.
+- ARCHITECTURE : nouvelle décision D12 (amende D7).
+
 ### Fixed
 
 - Test property `test_config_parsing` : `VALID_BACKENDS` n'incluait pas
@@ -25,6 +40,8 @@ et le projet adhère au [Versioning Sémantique](https://semver.org/spec/v2.0.0.
   obsolète après la sortie de v0.2.0) dans `SPEC.md`, `README.md`,
   `docs/prd/BACKLOG.md` et les messages d'erreur du backend Anthropic.
 - `README.md` : versions d'installation v0.1.0 → v0.2.0.
+- SPEC.md / ARCHITECTURE.md / README.md / CHANGELOG.md / BACKLOG.md mis à jour
+  pour refléter le streaming livré en v0.3.0 (PRD-005, D12).
 
 ## [0.2.0] - 2026-05-16
 
