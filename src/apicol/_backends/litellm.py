@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import litellm
@@ -63,6 +64,36 @@ def complete(messages: list[dict[str, Any]], config: Config, **kwargs: Any) -> d
     try:
         result: dict[str, Any] = litellm.completion(**call_kwargs)
         return result
+    except litellm.exceptions.APIError as e:
+        raise BackendError(f"LiteLLM API error: {e}") from e
+    except litellm.exceptions.BadRequestError as e:
+        raise BackendError(f"LiteLLM bad request: {e}") from e
+
+
+def stream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> Iterator[dict[str, Any]]:
+    """Streaming synchrone via LiteLLM (pass-through de chunks OpenAI-compatibles)."""
+    call_kwargs = _build_call_kwargs(messages, config, **kwargs)
+    call_kwargs["stream"] = True
+    try:
+        for chunk in litellm.completion(**call_kwargs):
+            yield chunk.model_dump() if hasattr(chunk, "model_dump") else dict(chunk)
+    except litellm.exceptions.APIError as e:
+        raise BackendError(f"LiteLLM API error: {e}") from e
+    except litellm.exceptions.BadRequestError as e:
+        raise BackendError(f"LiteLLM bad request: {e}") from e
+
+
+async def astream(
+    messages: list[dict[str, Any]], config: Config, **kwargs: Any
+) -> AsyncIterator[dict[str, Any]]:
+    """Pendant async de stream()."""
+    call_kwargs = _build_call_kwargs(messages, config, **kwargs)
+    call_kwargs["stream"] = True
+    try:
+        async for chunk in await litellm.acompletion(**call_kwargs):
+            yield chunk.model_dump() if hasattr(chunk, "model_dump") else dict(chunk)
     except litellm.exceptions.APIError as e:
         raise BackendError(f"LiteLLM API error: {e}") from e
     except litellm.exceptions.BadRequestError as e:
